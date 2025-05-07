@@ -1,7 +1,7 @@
 # MySQL Dummy Data Populator
 
-[![Unit Tests](https://github.com/vitebski/mysql-dumy-populator/actions/workflows/unit-tests.yml/badge.svg)](https://github.com/vitebski/mysql-dumy-populator/actions/workflows/unit-tests.yml)
-[![E2E Tests](https://github.com/vitebski/mysql-dumy-populator/actions/workflows/e2e-tests.yml/badge.svg)](https://github.com/vitebski/mysql-dumy-populator/actions/workflows/e2e-tests.yml)
+[![Unit Tests](https://github.com/vitebski/mysql-dumy-populator/actions/workflows/unit-tests.yml/badge.svg?branch=main)](https://github.com/vitebski/mysql-dumy-populator/actions/workflows/unit-tests.yml)
+[![E2E Tests](https://github.com/vitebski/mysql-dumy-populator/actions/workflows/e2e-tests.yml/badge.svg?branch=main)](https://github.com/vitebski/mysql-dumy-populator/actions/workflows/e2e-tests.yml)
 [![codecov](https://codecov.io/gh/vitebski/mysql-dumy-populator/branch/main/graph/badge.svg)](https://codecov.io/gh/vitebski/mysql-dumy-populator)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![MySQL 8.0+](https://img.shields.io/badge/mysql-8.0+-orange.svg)](https://dev.mysql.com/downloads/)
