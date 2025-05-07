@@ -223,8 +223,14 @@ class DatabasePopulator:
 
         # For tables with circular dependencies, pre-fetch parent table IDs
         for parent_table, _ in circular_deps:
+            # Get the primary key column name for the parent table
+            pk_column = self._get_primary_key_column(parent_table)
+            if not pk_column:
+                logging.warning(f"Could not determine primary key column for {parent_table}")
+                continue
+
             # Check if we have any parent table records in the database
-            query = f"SELECT ID FROM `{parent_table}` LIMIT 1"
+            query = f"SELECT `{pk_column}` FROM `{parent_table}` LIMIT 1"
             result = self.db.execute_query(query)
 
             if result and len(result) > 0:
@@ -232,12 +238,12 @@ class DatabasePopulator:
                 logging.info(f"Found existing {parent_table} records to use for {table}")
 
                 # Get all parent table IDs
-                query = f"SELECT ID FROM `{parent_table}`"
+                query = f"SELECT `{pk_column}` FROM `{parent_table}`"
                 result = self.db.execute_query(query)
 
                 if result and len(result) > 0:
                     # Store these IDs for use in the foreign key
-                    parent_ids = [row['ID'] for row in result]
+                    parent_ids = [row[pk_column] for row in result]
 
                     # Remember this for later when we process the foreign key column
                     # Use a dictionary to store IDs for multiple parent tables
@@ -245,21 +251,31 @@ class DatabasePopulator:
                         self._parent_table_ids = {}
                     self._parent_table_ids[parent_table] = parent_ids
 
+                    # Also store the primary key column name for reference
+                    if not hasattr(self, '_parent_table_pk_columns'):
+                        self._parent_table_pk_columns = {}
+                    self._parent_table_pk_columns[parent_table] = pk_column
+
         # Process columns
         for col in columns:
             column_name = col['column_name']
 
             # Handle foreign keys for tables with circular dependencies
-            if hasattr(self, '_parent_table_ids'):
+            if hasattr(self, '_parent_table_ids') and hasattr(self, '_parent_table_pk_columns'):
                 # Check if this column is a foreign key to a parent table in a circular dependency
                 for parent_table, parent_ids in self._parent_table_ids.items():
-                    # Check if this column references the parent table's ID
+                    # Get the primary key column for this parent table
+                    parent_pk_column = self._parent_table_pk_columns.get(parent_table)
+                    if not parent_pk_column:
+                        continue
+
+                    # Check if this column references the parent table's primary key
                     if table in self.schema.foreign_keys:
                         for fk in self.schema.foreign_keys[table]:
-                            if fk['column'] == column_name and fk['referenced_table'] == parent_table and fk['referenced_column'] == 'ID':
+                            if fk['column'] == column_name and fk['referenced_table'] == parent_table and fk['referenced_column'] == parent_pk_column:
                                 # Use an existing parent table ID
                                 row_data[column_name] = random.choice(parent_ids)
-                                logging.info(f"Using existing {parent_table} ID {row_data[column_name]} for {table}.{column_name}")
+                                logging.info(f"Using existing {parent_table} {parent_pk_column} {row_data[column_name]} for {table}.{column_name}")
                                 continue
 
             # Check if this is a foreign key
@@ -333,6 +349,35 @@ class DatabasePopulator:
                 row_data[column_name] = self.data_gen.generate_value(col, table_name=table)
 
         return row_data
+
+    def _get_primary_key_column(self, table_name):
+        """
+        Get the primary key column name for a table
+
+        Args:
+            table_name (str): Table name
+
+        Returns:
+            str: Primary key column name or None if not found
+        """
+        # Check if we have the table columns information
+        if table_name not in self.schema.table_columns:
+            logging.warning(f"No column information available for table {table_name}")
+            return None
+
+        # Look for the primary key column
+        for col in self.schema.table_columns[table_name]:
+            if col.get('column_key') == 'PRI':
+                return col['column_name']
+
+        # If no primary key found, look for an auto_increment column
+        for col in self.schema.table_columns[table_name]:
+            if 'auto_increment' in col.get('extra', ''):
+                return col['column_name']
+
+        # If still not found, return None
+        logging.warning(f"Could not find primary key column for table {table_name}")
+        return None
 
     def _generate_placeholder_value(self, column_info):
         """

@@ -592,6 +592,12 @@ class DataGenerator:
                 if 'price' in column_name_lower and max_val > 10000:
                     max_val = min(max_val, 10000.0)
 
+            # Handle credit limit fields (usually 0-10000)
+            if 'credit' in column_name_lower and 'limit' in column_name_lower:
+                min_val = max(0.0, min_val)
+                max_val = min(max_val, 10000.0)
+                logging.debug(f"Applied credit limit heuristic to {column_info['column_name']}: {min_val} to {max_val}")
+
             # Handle bandwidth, storage, memory limits (usually positive, reasonable values)
             if any(term in column_name_lower for term in ['bandwidth', 'storage', 'memory', 'size', 'capacity']):
                 min_val = max(0.0, min_val)
@@ -639,6 +645,9 @@ class DataGenerator:
                 elif constraint_type == 'unknown' and constraint.get('raw_clause'):
                     # Try to extract BETWEEN pattern from raw clause
                     raw_clause = constraint.get('raw_clause', '')
+                    logging.debug(f"Processing unknown constraint raw clause for {column_info['column_name']}: {raw_clause}")
+
+                    # Try to extract BETWEEN pattern
                     between_match = re.search(r'BETWEEN\s+(\d+\.?\d*)\s+AND\s+(\d+\.?\d*)', raw_clause, re.IGNORECASE)
                     if between_match:
                         constraint_min = float(between_match.group(1))
@@ -646,6 +655,20 @@ class DataGenerator:
                         min_val = max(min_val, constraint_min)
                         max_val = min(max_val, constraint_max)
                         logging.debug(f"Applied BETWEEN constraint from raw clause to {column_info['column_name']}: {min_val} to {max_val}")
+
+                    # Try to extract >= and <= patterns
+                    min_match = re.search(r'>=\s*(-?\d+\.?\d*)', raw_clause, re.IGNORECASE)
+                    max_match = re.search(r'<=\s*(-?\d+\.?\d*)', raw_clause, re.IGNORECASE)
+
+                    if min_match:
+                        constraint_min = float(min_match.group(1))
+                        min_val = max(min_val, constraint_min)
+                        logging.debug(f"Applied >= constraint from raw clause to {column_info['column_name']}: min = {min_val}")
+
+                    if max_match:
+                        constraint_max = float(max_match.group(1))
+                        max_val = min(max_val, constraint_max)
+                        logging.debug(f"Applied <= constraint from raw clause to {column_info['column_name']}: max = {max_val}")
 
             # Generate a random decimal value within the safe range
             value = random.uniform(min_val, max_val)

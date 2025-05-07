@@ -265,6 +265,7 @@ class SchemaAnalyzer:
                         self.check_constraints[table_name] = []
 
                     # Parse the check clause to extract column name and condition
+                    logging.debug(f"Parsing check constraint '{constraint_name}' for table '{table_name}': {check_clause}")
                     parsed_constraint = self._parse_check_constraint(check_clause)
 
                     if parsed_constraint:
@@ -273,6 +274,9 @@ class SchemaAnalyzer:
                         logging.info(f"Extracted check constraint '{constraint_name}' for table '{table_name}': {parsed_constraint}")
                     else:
                         logging.warning(f"Could not parse check constraint '{constraint_name}' for table '{table_name}': {check_clause}")
+
+                    # Always log the raw clause for debugging
+                    logging.debug(f"Raw check clause for '{constraint_name}': {check_clause}")
 
                 except Exception as e:
                     logging.warning(f"Error processing check constraint: {e}. Data: {constraint}")
@@ -321,13 +325,25 @@ class SchemaAnalyzer:
         if column_match:
             result['column'] = column_match.group(1)
 
-        # Check for range constraints (>= AND <=)
+        # Check for range constraints (>= AND <=) with various formats
+        # Format 1: (column >= value AND column <= value)
         range_match = re.search(r'\(([a-zA-Z0-9_]+)\s*>=\s*(-?\d+\.?\d*)\s*AND\s*([a-zA-Z0-9_]+)\s*<=\s*(-?\d+\.?\d*)\)', clean_clause)
         if range_match and range_match.group(1) == range_match.group(3):  # Same column in both conditions
             result['type'] = 'range'
             result['column'] = range_match.group(1)
             result['min_value'] = float(range_match.group(2))
             result['max_value'] = float(range_match.group(4))
+            logging.debug(f"Parsed range constraint (format 1): {result['column']} between {result['min_value']} and {result['max_value']}")
+            return result
+
+        # Format 2: ((column >= value) and (column <= value))
+        range_match2 = re.search(r'\(\(([a-zA-Z0-9_]+)\s*>=\s*(-?\d+\.?\d*)\)\s*and\s*\(([a-zA-Z0-9_]+)\s*<=\s*(-?\d+\.?\d*)\)\)', clean_clause, re.IGNORECASE)
+        if range_match2 and range_match2.group(1) == range_match2.group(3):  # Same column in both conditions
+            result['type'] = 'range'
+            result['column'] = range_match2.group(1)
+            result['min_value'] = float(range_match2.group(2))
+            result['max_value'] = float(range_match2.group(4))
+            logging.debug(f"Parsed range constraint (format 2): {result['column']} between {result['min_value']} and {result['max_value']}")
             return result
 
         # Check for BETWEEN constraints
@@ -388,7 +404,35 @@ class SchemaAnalyzer:
             result['max_value'] = float(enhanced_between_match.group(3))
             return result
 
+        # Try to extract range constraints from raw clause as a last resort
+        # This is a more generic approach for constraints that don't match the specific patterns above
+        if result['type'] == 'unknown':
+            # Look for patterns like (column >= min) and (column <= max)
+            min_match = re.search(r'([a-zA-Z0-9_]+)\s*>=\s*(-?\d+\.?\d*)', clean_clause, re.IGNORECASE)
+            max_match = re.search(r'([a-zA-Z0-9_]+)\s*<=\s*(-?\d+\.?\d*)', clean_clause, re.IGNORECASE)
+
+            if min_match and max_match and min_match.group(1) == max_match.group(1):
+                result['type'] = 'range'
+                result['column'] = min_match.group(1)
+                result['min_value'] = float(min_match.group(2))
+                result['max_value'] = float(max_match.group(2))
+                logging.debug(f"Parsed range constraint (generic format): {result['column']} between {result['min_value']} and {result['max_value']}")
+                return result
+
+            # Look for patterns like (column > min) and (column < max)
+            min_match = re.search(r'([a-zA-Z0-9_]+)\s*>\s*(-?\d+\.?\d*)', clean_clause, re.IGNORECASE)
+            max_match = re.search(r'([a-zA-Z0-9_]+)\s*<\s*(-?\d+\.?\d*)', clean_clause, re.IGNORECASE)
+
+            if min_match and max_match and min_match.group(1) == max_match.group(1):
+                result['type'] = 'range'
+                result['column'] = min_match.group(1)
+                result['min_value'] = float(min_match.group(2))
+                result['max_value'] = float(max_match.group(2))
+                logging.debug(f"Parsed range constraint (generic format): {result['column']} between {result['min_value']} and {result['max_value']}")
+                return result
+
         # If we couldn't parse it, return the raw clause for manual handling
+        logging.debug(f"Could not parse constraint into a specific type: {check_clause}")
         return result
 
     def _detect_many_to_many_tables(self):

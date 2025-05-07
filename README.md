@@ -1,6 +1,24 @@
 # MySQL Dummy Data Populator
 
+[![Unit Tests](https://github.com/vitebski/mysql-dumy-populator/actions/workflows/unit-tests.yml/badge.svg)](https://github.com/vitebski/mysql-dumy-populator/actions/workflows/unit-tests.yml)
+[![E2E Tests](https://github.com/vitebski/mysql-dumy-populator/actions/workflows/e2e-tests.yml/badge.svg)](https://github.com/vitebski/mysql-dumy-populator/actions/workflows/e2e-tests.yml)
+[![codecov](https://codecov.io/gh/vitebski/mysql-dumy-populator/branch/main/graph/badge.svg)](https://codecov.io/gh/vitebski/mysql-dumy-populator)
+[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![MySQL 8.0+](https://img.shields.io/badge/mysql-8.0+-orange.svg)](https://dev.mysql.com/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 A Python tool that populates MySQL databases with realistic dummy data, handling foreign keys, circular dependencies, and many-to-many relationships.
+
+## Project Status
+
+The badges at the top of this README provide at-a-glance information about the project:
+
+- **Unit Tests**: Status of the automated unit tests
+- **E2E Tests**: Status of the end-to-end tests with a real MySQL database
+- **Code Coverage**: Percentage of code covered by tests
+- **Python 3.8+**: Indicates Python version compatibility
+- **MySQL 8.0+**: Indicates MySQL version compatibility
+- **License: MIT**: Shows the project's license
 
 ## Features
 
@@ -252,6 +270,11 @@ source venv/bin/activate
 
 # Run all unit tests
 python -m unittest discover -p "test_*.py"
+
+# Run tests with coverage report
+pip install coverage
+coverage run -m unittest discover -p "test_*.py"
+coverage report
 ```
 
 ### End-to-End Tests
