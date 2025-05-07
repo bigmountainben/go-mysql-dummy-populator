@@ -1,0 +1,61 @@
+name: E2E Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  e2e-test:
+    runs-on: ubuntu-latest
+    
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: test_db
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -u root -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install virtualenv
+        python -m virtualenv venv
+        source venv/bin/activate
+        pip install -r requirements.txt
+        
+    - name: Create demo schema
+      run: |
+        source venv/bin/activate
+        mysql -h 127.0.0.1 -P 3306 -u root -proot test_db < ./tests/demo_schema.sql
+      
+    - name: Run populator in analyze-only mode
+      run: |
+        source venv/bin/activate
+        python main.py --host 127.0.0.1 --port 3306 --user root --password root --database test_db --analyze-only
+        
+    - name: Run populator with data generation
+      run: |
+        source venv/bin/activate
+        python main.py --host 127.0.0.1 --port 3306 --user root --password root --database test_db --records 5
+        
+    - name: Run populator with verification
+      run: |
+        source venv/bin/activate
+        python main.py --host 127.0.0.1 --port 3306 --user root --password root --database test_db --verify --min-records 5

@@ -230,3 +230,54 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
+
+## Automated Testing
+
+This project uses GitHub Actions for automated testing to ensure code quality and functionality.
+
+### Unit Tests
+
+The unit tests workflow runs all the unit tests in the project across multiple Python versions:
+
+- Python 3.8
+- Python 3.9
+- Python 3.10
+- Python 3.11
+
+To run the unit tests locally:
+
+```bash
+# Activate your virtual environment
+source venv/bin/activate
+
+# Run all unit tests
+python -m unittest discover -p "test_*.py"
+```
+
+### End-to-End Tests
+
+The E2E tests workflow:
+
+1. Sets up a MySQL 8.0 database
+2. Creates a demo schema with various table types and relationships
+3. Runs the populator in analyze-only mode
+4. Populates the database with dummy data
+5. Verifies that all tables have been populated correctly
+
+To run the E2E tests locally, you'll need a MySQL instance:
+
+```bash
+# Create the demo schema
+mysql -h localhost -u your_user -p your_database < tests/demo_schema.sql
+
+# Run the populator
+python main.py --host localhost --user your_user --password your_password --database your_database --verify
+```
+
+The demo schema includes:
+- Tables with primary keys
+- Tables with foreign keys
+- Tables with circular dependencies
+- Many-to-many relationship tables
+- Tables with check constraints
+- Tables with columns using MySQL reserved keywords
