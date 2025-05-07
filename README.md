@@ -291,7 +291,7 @@ To run the E2E tests locally, you'll need a MySQL instance:
 
 ```bash
 # Create the demo schema
-mysql -h localhost -u your_user -p your_database < tests/demo_schema.sql
+mysql -h localhost -u your_user -p your_database < tests/schemas/demo_schema.sql
 
 # Run the populator
 python main.py --host localhost --user your_user --password your_password --database your_database --verify

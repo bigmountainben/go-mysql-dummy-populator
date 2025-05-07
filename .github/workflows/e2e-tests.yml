@@ -9,7 +9,18 @@ on:
 jobs:
   e2e-test:
     runs-on: ubuntu-latest
-    
+    strategy:
+      matrix:
+        schema: [
+          'demo_schema',
+          'simple_schema',
+          'complex_schema',
+          'temporal_schema',
+          'json_schema',
+          'spatial_schema'
+        ]
+      fail-fast: false
+
     services:
       mysql:
         image: mysql:8.0
@@ -23,15 +34,15 @@ jobs:
           --health-interval=10s
           --health-timeout=5s
           --health-retries=5
-    
+
     steps:
     - uses: actions/checkout@v3
-    
+
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
         python-version: '3.11'
-        
+
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
@@ -39,23 +50,23 @@ jobs:
         python -m virtualenv venv
         source venv/bin/activate
         pip install -r requirements.txt
-        
-    - name: Create demo schema
+
+    - name: Create schema - ${{ matrix.schema }}
       run: |
         source venv/bin/activate
-        mysql -h 127.0.0.1 -P 3306 -u root -proot test_db < ./tests/demo_schema.sql
-      
-    - name: Run populator in analyze-only mode
+        mysql -h 127.0.0.1 -P 3306 -u root -proot test_db < ./tests/schemas/${{ matrix.schema }}.sql
+
+    - name: Run populator in analyze-only mode - ${{ matrix.schema }}
       run: |
         source venv/bin/activate
         python main.py --host 127.0.0.1 --port 3306 --user root --password root --database test_db --analyze-only
-        
-    - name: Run populator with data generation
+
+    - name: Run populator with data generation - ${{ matrix.schema }}
       run: |
         source venv/bin/activate
         python main.py --host 127.0.0.1 --port 3306 --user root --password root --database test_db --records 5
-        
-    - name: Run populator with verification
+
+    - name: Run populator with verification - ${{ matrix.schema }}
       run: |
         source venv/bin/activate
         python main.py --host 127.0.0.1 --port 3306 --user root --password root --database test_db --verify --min-records 5
