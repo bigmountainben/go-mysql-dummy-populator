@@ -20,6 +20,7 @@ class SchemaAnalyzer:
         self.many_to_many_tables = set()
         self.table_columns = {}
         self.dependency_graph = nx.DiGraph()
+        self.direct_circular_dependencies = []  # List of (parent_table, child_table) tuples for direct circular dependencies
 
     def analyze_schema(self):
         """
@@ -378,12 +379,13 @@ class SchemaAnalyzer:
                     result['allowed_values'] = [value]
             return result
 
-        # Check for specific named constraints we know about
-        if 'check_DefaultRedisFlexRamRatio' in check_clause:
-            result['type'] = 'special'
-            result['column'] = 'DefaultRedisFlexRamRatio'
-            result['min_value'] = 0.0
-            result['max_value'] = 1.0
+        # Enhanced BETWEEN pattern to handle more variations
+        enhanced_between_match = re.search(r'\(([a-zA-Z0-9_]+)\s+BETWEEN\s+(\d+\.?\d*)\s+AND\s+(\d+\.?\d*)\)', clean_clause, re.IGNORECASE)
+        if enhanced_between_match:
+            result['type'] = 'between'
+            result['column'] = enhanced_between_match.group(1)
+            result['min_value'] = float(enhanced_between_match.group(2))
+            result['max_value'] = float(enhanced_between_match.group(3))
             return result
 
         # If we couldn't parse it, return the raw clause for manual handling
@@ -712,6 +714,32 @@ class SchemaAnalyzer:
             # Log total
             total_msg = f"Total circular dependencies: {len(cycles)} ({len(mandatory_cycles)} mandatory, {len(optional_cycles)} optional)"
             logging.info(total_msg)
+
+            # Identify direct circular dependencies (cycles of length 2)
+            self.direct_circular_dependencies = []
+            for cycle in cycles:
+                if len(cycle) == 2:
+                    # This is a direct circular dependency between two tables
+                    parent_table, child_table = cycle
+                    self.direct_circular_dependencies.append((parent_table, child_table))
+                    logging.info(f"Detected direct circular dependency between {parent_table} and {child_table}")
+
+            # Check for additional implicit circular dependencies that might not be detected as cycles
+            # This happens when tables have foreign key relationships but aren't part of a cycle
+            # in the dependency graph due to nullable foreign keys
+            for table in self.tables:
+                if table in self.foreign_keys:
+                    for fk in self.foreign_keys[table]:
+                        referenced_table = fk['referenced_table']
+                        # Check if the referenced table also has foreign keys back to this table
+                        if referenced_table in self.foreign_keys:
+                            for ref_fk in self.foreign_keys[referenced_table]:
+                                if ref_fk['referenced_table'] == table:
+                                    # This is a potential circular dependency
+                                    if (referenced_table, table) not in self.direct_circular_dependencies and \
+                                       (table, referenced_table) not in self.direct_circular_dependencies:
+                                        self.direct_circular_dependencies.append((referenced_table, table))
+                                        logging.info(f"Detected implicit circular dependency: {referenced_table} -> {table}")
         else:
             logging.info("No circular dependencies detected in the schema")
 

@@ -245,12 +245,15 @@ class DataGenerator:
                 if allowed_values:
                     return allowed_values[0]  # There should be only one value
 
-            # Handle special constraints
-            elif constraint_type == 'special' or (constraint_type == 'unknown' and 'DefaultRedisFlexRamRatio' in constraint.get('column', '')):
-                if 'DefaultRedisFlexRamRatio' in constraint.get('column', ''):
-                    # This is a special case for the DefaultRedisFlexRamRatio column
-                    # Return a float value between 0.0 and 1.0 instead of an integer
-                    return random.uniform(0.0, 1.0)
+            # Handle unknown constraints that might be BETWEEN constraints
+            elif constraint_type == 'unknown' and constraint.get('raw_clause'):
+                # Try to extract BETWEEN pattern from raw clause
+                raw_clause = constraint.get('raw_clause', '')
+                between_match = re.search(r'BETWEEN\s+(\d+\.?\d*)\s+AND\s+(\d+\.?\d*)', raw_clause, re.IGNORECASE)
+                if between_match:
+                    min_val = max(min_val, float(between_match.group(1)))
+                    max_val = min(max_val, float(between_match.group(2)))
+                    logging.debug(f"Applied BETWEEN constraint from raw clause to {column_info['column_name']}: {min_val} to {max_val}")
 
         return random.randint(min_val, max_val)
 
@@ -527,11 +530,17 @@ class DataGenerator:
                 except (ValueError, TypeError):
                     pass
 
-            # Handle special constraints
-            elif constraint_type == 'special':
-                if 'DefaultRedisFlexRamRatio' in constraint.get('column', ''):
-                    # This is a special case for the DefaultRedisFlexRamRatio column
-                    return random.uniform(0.0, 1.0)
+            # Handle unknown constraints that might be BETWEEN constraints
+            elif constraint_type == 'unknown' and constraint.get('raw_clause'):
+                # Try to extract BETWEEN pattern from raw clause
+                raw_clause = constraint.get('raw_clause', '')
+                between_match = re.search(r'BETWEEN\s+(\d+\.?\d*)\s+AND\s+(\d+\.?\d*)', raw_clause, re.IGNORECASE)
+                if between_match:
+                    constraint_min = float(between_match.group(1))
+                    constraint_max = float(between_match.group(2))
+                    min_val = max(min_val, constraint_min)
+                    max_val = min(max_val, constraint_max)
+                    logging.debug(f"Applied BETWEEN constraint from raw clause to {column_info['column_name']}: {min_val} to {max_val}")
 
         return round(random.uniform(min_val, max_val), 6)
 
@@ -626,11 +635,17 @@ class DataGenerator:
                     except (ValueError, TypeError):
                         pass
 
-                # Handle special constraints
-                elif constraint_type == 'special':
-                    if 'DefaultRedisFlexRamRatio' in constraint.get('column', ''):
-                        # This is a special case for the DefaultRedisFlexRamRatio column
-                        return Decimal(str(random.uniform(0.0, 1.0)))
+                # Handle unknown constraints that might be BETWEEN constraints
+                elif constraint_type == 'unknown' and constraint.get('raw_clause'):
+                    # Try to extract BETWEEN pattern from raw clause
+                    raw_clause = constraint.get('raw_clause', '')
+                    between_match = re.search(r'BETWEEN\s+(\d+\.?\d*)\s+AND\s+(\d+\.?\d*)', raw_clause, re.IGNORECASE)
+                    if between_match:
+                        constraint_min = float(between_match.group(1))
+                        constraint_max = float(between_match.group(2))
+                        min_val = max(min_val, constraint_min)
+                        max_val = min(max_val, constraint_max)
+                        logging.debug(f"Applied BETWEEN constraint from raw clause to {column_info['column_name']}: {min_val} to {max_val}")
 
             # Generate a random decimal value within the safe range
             value = random.uniform(min_val, max_val)

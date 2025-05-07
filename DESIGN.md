@@ -100,12 +100,12 @@ To handle circular dependencies, the DatabasePopulator uses a sophisticated appr
    - Setting nullable foreign keys to NULL
 3. Final pass: Attempt to populate any remaining tables that failed in previous passes
 
-#### Special Case Handling
+#### Generic Handling Approach
 
-The DatabasePopulator includes special handling for problematic cases:
+The DatabasePopulator uses generic approaches to handle common database issues:
 
-1. **Reserved Keywords**: Escapes column names with backticks for tables like `SyncSource` that contain reserved keywords
-2. **Complex Circular Dependencies**: Special handling for tables like `SyncSource_LogAlert` that have circular dependencies with `SyncSource`
+1. **Reserved Keywords**: Escapes all column names with backticks in SQL queries to handle reserved keywords
+2. **Circular Dependencies**: Uses a generic multi-pass approach to handle circular dependencies between tables
 
 ### DatabaseConnector
 
@@ -210,17 +210,19 @@ The check constraint handling is implemented through several components:
    - For numeric types, ensures values are within the specified range
    - For string types, ensures values match the allowed pattern or set
 
-4. **Special Cases**: Some constraints require custom handling, such as:
-   - `check_DefaultRedisFlexRamRatio`: Ensures values are between 0.0 and 1.0
+4. **Constraint Types**: The system handles various constraint types:
+   - `BETWEEN`: Ensures values are within a specified range (e.g., between 1 and 100)
+   - `IN`: Ensures values are from a specified set of allowed values
+   - `LIKE`: Ensures string values match a specified pattern
    - Complex expressions: Parsed and handled based on their specific requirements
 
 ### Reserved Keyword Handling
 
 MySQL reserved keywords in column or table names are handled by:
 
-1. Detecting tables with potential keyword issues (like `SyncSource` with its `Lag` column)
-2. Escaping all column names with backticks in SQL queries for these tables
-3. Using special SQL query construction for both regular and partial population attempts
+1. Escaping all table and column names with backticks in SQL queries
+2. Logging when tables contain columns with MySQL reserved keywords
+3. Using a comprehensive list of MySQL reserved keywords for detection
 
 ### Circular Dependency Resolution
 
@@ -228,10 +230,10 @@ The circular dependency resolution process involves:
 
 1. **Detection**: Identifying strongly connected components in the dependency graph
 2. **Ordering**: Placing tables in an order that minimizes the impact of circular dependencies
-3. **Special Handling**: For specific cases like `SyncSource` and `SyncSource_LogAlert`:
-   - Ensuring the parent table is populated first
-   - Querying existing IDs from the database to use in the dependent table
+3. **Generic Approach**: For all tables with circular dependencies:
+   - Querying existing IDs from the database to use in the dependent tables
    - Using placeholder values when necessary and updating them later
+   - Setting nullable foreign keys to NULL when possible
 
 4. **Multi-Pass Approach**:
    - First pass: Tables without circular dependencies
@@ -306,8 +308,8 @@ The MySQL Database Populator is a powerful tool for generating realistic test da
 
 3. **Constraint-Aware Data Generation**: All generated data respects column constraints, including data types, foreign keys, unique constraints, and check constraints.
 
-4. **Special Case Handling**: The tool includes specialized handling for edge cases like reserved keywords and complex circular dependencies.
+4. **Generic Handling Approaches**: The tool uses generic approaches to handle common issues like reserved keywords and circular dependencies.
 
-5. **Extensibility**: The modular design makes it easy to add support for new data types, constraints, or special cases.
+5. **Extensibility**: The modular design makes it easy to add support for new data types, constraints, or generic handling approaches.
 
 The combination of these features makes the MySQL Database Populator an invaluable tool for database testing, development, and demonstration purposes.

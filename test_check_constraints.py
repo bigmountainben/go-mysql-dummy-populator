@@ -6,6 +6,7 @@ Test script for check constraint handling
 import unittest
 import logging
 import os
+import re
 from db_connector import DatabaseConnector
 from schema_analyzer import SchemaAnalyzer
 from data_generator import DataGenerator
@@ -94,8 +95,8 @@ class TestCheckConstraints(unittest.TestCase):
             for constraint in constraints:
                 if constraint['constraint_name'] == 'check_DefaultRedisFlexRamRatio':
                     found_special_constraint = True
-                    self.assertEqual(constraint['type'], 'unknown',
-                                    "DefaultRedisFlexRamRatio constraint should be of type 'unknown'")
+                    self.assertEqual(constraint['type'], 'between',
+                                    "DefaultRedisFlexRamRatio constraint should be of type 'between'")
                     self.assertEqual(constraint['column'], 'DefaultRedisFlexRamRatio',
                                     "Column name should be 'DefaultRedisFlexRamRatio'")
 
@@ -180,14 +181,18 @@ class TestCheckConstraints(unittest.TestCase):
                                            f"Value {value} is not equal to {constraint['allowed_values'][0]}")
                             logging.info(f"    Value {value} equals required value {constraint['allowed_values'][0]}")
 
-                    # Special case for DefaultRedisFlexRamRatio
-                    elif constraint['type'] == 'special' or (constraint['type'] == 'unknown' and 'DefaultRedisFlexRamRatio' in constraint.get('column', '')):
-                        if value is not None:
+                    # For unknown constraints, try to extract BETWEEN pattern from raw clause
+                    elif constraint['type'] == 'unknown' and constraint.get('raw_clause'):
+                        raw_clause = constraint.get('raw_clause', '')
+                        between_match = re.search(r'BETWEEN\s+(\d+\.?\d*)\s+AND\s+(\d+\.?\d*)', raw_clause, re.IGNORECASE)
+                        if between_match and value is not None:
                             try:
                                 float_value = float(value)
-                                self.assertGreaterEqual(float_value, 0.0, f"Value {value} is less than 0.0")
-                                self.assertLessEqual(float_value, 1.0, f"Value {value} is greater than 1.0")
-                                logging.info(f"    Value {value} is within range 0.0 to 1.0 (special case)")
+                                min_val = float(between_match.group(1))
+                                max_val = float(between_match.group(2))
+                                self.assertGreaterEqual(float_value, min_val, f"Value {value} is less than minimum {min_val}")
+                                self.assertLessEqual(float_value, max_val, f"Value {value} is greater than maximum {max_val}")
+                                logging.info(f"    Value {value} is within range {min_val} to {max_val} (extracted from raw clause)")
                             except (ValueError, TypeError) as e:
                                 logging.error(f"    Validation error: {e}")
 

@@ -48,19 +48,20 @@ class DatabasePopulator:
         logging.info(f"Tables will be populated in the following order: {', '.join(ordered_tables)}")
         logging.info(f"Tables involved in circular dependencies: {', '.join(circular_tables)}")
 
-        # Special handling for SyncSource and SyncSource_LogAlert
-        # Make sure SyncSource is populated first
-        if 'SyncSource' in ordered_tables and 'SyncSource_LogAlert' in ordered_tables:
-            logging.info("Special handling for SyncSource and SyncSource_LogAlert tables")
+        # Handle tables with circular dependencies by ensuring proper order
+        # For tables with direct circular dependencies, ensure the parent table is populated first
+        for table_pair in self.schema.direct_circular_dependencies:
+            parent_table, child_table = table_pair
 
-            # Remove these tables from the ordered list
-            ordered_tables = [t for t in ordered_tables if t not in ['SyncSource', 'SyncSource_LogAlert']]
+            if parent_table in ordered_tables and child_table in ordered_tables:
+                logging.info(f"Handling circular dependency between {parent_table} and {child_table}")
 
-            # Add SyncSource to the beginning of the list
-            ordered_tables = ['SyncSource'] + ordered_tables
+                # Remove these tables from the ordered list
+                ordered_tables = [t for t in ordered_tables if t not in [parent_table, child_table]]
 
-            # Add SyncSource_LogAlert to the end of the list
-            ordered_tables.append('SyncSource_LogAlert')
+                # Add parent table first, then child table at the end
+                ordered_tables = [parent_table] + ordered_tables
+                ordered_tables.append(child_table)
 
         # First pass: populate tables without circular dependencies
         non_circular_tables = [table for table in ordered_tables if table not in circular_tables]
@@ -113,25 +114,56 @@ class DatabasePopulator:
         columns = self.schema.table_columns[table]
         column_names = [col['column_name'] for col in columns]
 
-        # Special handling for SyncSource table which has a column named 'Lag' (MySQL reserved keyword)
-        if table == 'SyncSource':
-            logging.info("Special handling for SyncSource table with reserved keyword columns")
-            # Escape column names with backticks to handle reserved keywords
-            escaped_column_names = [f"`{col_name}`" for col_name in column_names]
+        # Always escape table and column names with backticks to handle reserved keywords
+        escaped_column_names = [f"`{col_name}`" for col_name in column_names]
 
-            # Prepare placeholders for SQL query
-            placeholders = ', '.join(['%s'] * len(column_names))
+        # Prepare placeholders for SQL query
+        placeholders = ', '.join(['%s'] * len(column_names))
 
-            # Build INSERT query with escaped column names
-            insert_query = f"INSERT INTO `{table}` ({', '.join(escaped_column_names)}) VALUES ({placeholders})"
+        # Build INSERT query with escaped table and column names
+        insert_query = f"INSERT INTO `{table}` ({', '.join(escaped_column_names)}) VALUES ({placeholders})"
 
-            logging.debug(f"Using escaped column names for SyncSource: {insert_query}")
-        else:
-            # Prepare placeholders for SQL query
-            placeholders = ', '.join(['%s'] * len(column_names))
+        # Log if the table has reserved keyword columns
+        mysql_reserved_keywords = ['ADD', 'ALL', 'ALTER', 'ANALYZE', 'AND', 'AS', 'ASC', 'ASENSITIVE',
+                                  'BEFORE', 'BETWEEN', 'BIGINT', 'BINARY', 'BLOB', 'BOTH', 'BY',
+                                  'CALL', 'CASCADE', 'CASE', 'CHANGE', 'CHAR', 'CHARACTER', 'CHECK',
+                                  'COLLATE', 'COLUMN', 'CONDITION', 'CONSTRAINT', 'CONTINUE', 'CONVERT',
+                                  'CREATE', 'CROSS', 'CURRENT_DATE', 'CURRENT_TIME', 'CURRENT_TIMESTAMP',
+                                  'CURRENT_USER', 'CURSOR', 'DATABASE', 'DATABASES', 'DAY_HOUR',
+                                  'DAY_MICROSECOND', 'DAY_MINUTE', 'DAY_SECOND', 'DEC', 'DECIMAL',
+                                  'DECLARE', 'DEFAULT', 'DELAYED', 'DELETE', 'DESC', 'DESCRIBE',
+                                  'DETERMINISTIC', 'DISTINCT', 'DISTINCTROW', 'DIV', 'DOUBLE', 'DROP',
+                                  'DUAL', 'EACH', 'ELSE', 'ELSEIF', 'ENCLOSED', 'ESCAPED', 'EXISTS',
+                                  'EXIT', 'EXPLAIN', 'FALSE', 'FETCH', 'FLOAT', 'FLOAT4', 'FLOAT8',
+                                  'FOR', 'FORCE', 'FOREIGN', 'FROM', 'FULLTEXT', 'GRANT', 'GROUP',
+                                  'HAVING', 'HIGH_PRIORITY', 'HOUR_MICROSECOND', 'HOUR_MINUTE',
+                                  'HOUR_SECOND', 'IF', 'IGNORE', 'IN', 'INDEX', 'INFILE', 'INNER',
+                                  'INOUT', 'INSENSITIVE', 'INSERT', 'INT', 'INT1', 'INT2', 'INT3',
+                                  'INT4', 'INT8', 'INTEGER', 'INTERVAL', 'INTO', 'IS', 'ITERATE',
+                                  'JOIN', 'KEY', 'KEYS', 'KILL', 'LEADING', 'LEAVE', 'LEFT', 'LIKE',
+                                  'LIMIT', 'LINES', 'LOAD', 'LOCALTIME', 'LOCALTIMESTAMP', 'LOCK',
+                                  'LONG', 'LONGBLOB', 'LONGTEXT', 'LOOP', 'LOW_PRIORITY', 'MATCH',
+                                  'MEDIUMBLOB', 'MEDIUMINT', 'MEDIUMTEXT', 'MIDDLEINT', 'MINUTE_MICROSECOND',
+                                  'MINUTE_SECOND', 'MOD', 'MODIFIES', 'NATURAL', 'NOT', 'NO_WRITE_TO_BINLOG',
+                                  'NULL', 'NUMERIC', 'ON', 'OPTIMIZE', 'OPTION', 'OPTIONALLY', 'OR',
+                                  'ORDER', 'OUT', 'OUTER', 'OUTFILE', 'PRECISION', 'PRIMARY', 'PROCEDURE',
+                                  'PURGE', 'RANGE', 'READ', 'READS', 'READ_ONLY', 'READ_WRITE', 'REAL',
+                                  'REFERENCES', 'REGEXP', 'RELEASE', 'RENAME', 'REPEAT', 'REPLACE',
+                                  'REQUIRE', 'RESTRICT', 'RETURN', 'REVOKE', 'RIGHT', 'RLIKE', 'SCHEMA',
+                                  'SCHEMAS', 'SECOND_MICROSECOND', 'SELECT', 'SENSITIVE', 'SEPARATOR',
+                                  'SET', 'SHOW', 'SMALLINT', 'SPATIAL', 'SPECIFIC', 'SQL', 'SQLEXCEPTION',
+                                  'SQLSTATE', 'SQLWARNING', 'SQL_BIG_RESULT', 'SQL_CALC_FOUND_ROWS',
+                                  'SQL_SMALL_RESULT', 'SSL', 'STARTING', 'STRAIGHT_JOIN', 'TABLE',
+                                  'TERMINATED', 'THEN', 'TINYBLOB', 'TINYINT', 'TINYTEXT', 'TO',
+                                  'TRAILING', 'TRIGGER', 'TRUE', 'UNDO', 'UNION', 'UNIQUE', 'UNLOCK',
+                                  'UNSIGNED', 'UPDATE', 'USAGE', 'USE', 'USING', 'UTC_DATE', 'UTC_TIME',
+                                  'UTC_TIMESTAMP', 'VALUES', 'VARBINARY', 'VARCHAR', 'VARCHARACTER',
+                                  'VARYING', 'WHEN', 'WHERE', 'WHILE', 'WITH', 'WRITE', 'X509',
+                                  'XOR', 'YEAR_MONTH', 'ZEROFILL', 'LAG']
 
-            # Build INSERT query
-            insert_query = f"INSERT INTO {table} ({', '.join(column_names)}) VALUES ({placeholders})"
+        reserved_keywords_in_columns = [col for col in column_names if col.upper() in mysql_reserved_keywords]
+        if reserved_keywords_in_columns:
+            logging.info(f"Table {table} has columns with MySQL reserved keywords: {', '.join(reserved_keywords_in_columns)}")
 
         # Generate and insert data
         successful_inserts = 0
@@ -183,37 +215,52 @@ class DatabasePopulator:
         """
         row_data = {}
 
-        # Special handling for SyncSource_LogAlert table which has a circular dependency with SyncSource
-        if table == 'SyncSource_LogAlert':
-            # First, check if we have any SyncSource records in the database
-            query = "SELECT ID FROM SyncSource LIMIT 1"
+        # Check if this table is part of a known circular dependency
+        circular_deps = []
+        for parent_table, child_table in getattr(self.schema, 'direct_circular_dependencies', []):
+            if table == child_table:
+                circular_deps.append((parent_table, child_table))
+
+        # For tables with circular dependencies, pre-fetch parent table IDs
+        for parent_table, _ in circular_deps:
+            # Check if we have any parent table records in the database
+            query = f"SELECT ID FROM `{parent_table}` LIMIT 1"
             result = self.db.execute_query(query)
 
             if result and len(result) > 0:
-                # We have SyncSource records, so we can use them
-                logging.info("Found existing SyncSource records to use for SyncSource_LogAlert")
+                # We have parent table records, so we can use them
+                logging.info(f"Found existing {parent_table} records to use for {table}")
 
-                # Get all SyncSource IDs
-                query = "SELECT ID FROM SyncSource"
+                # Get all parent table IDs
+                query = f"SELECT ID FROM `{parent_table}`"
                 result = self.db.execute_query(query)
 
                 if result and len(result) > 0:
                     # Store these IDs for use in the foreign key
-                    sync_source_ids = [row['ID'] for row in result]
+                    parent_ids = [row['ID'] for row in result]
 
-                    # Remember this for later when we process the SyncSource_ID column
-                    self._sync_source_ids = sync_source_ids
+                    # Remember this for later when we process the foreign key column
+                    # Use a dictionary to store IDs for multiple parent tables
+                    if not hasattr(self, '_parent_table_ids'):
+                        self._parent_table_ids = {}
+                    self._parent_table_ids[parent_table] = parent_ids
 
         # Process columns
         for col in columns:
             column_name = col['column_name']
 
-            # Special handling for SyncSource_LogAlert.SyncSource_ID
-            if table == 'SyncSource_LogAlert' and column_name == 'SyncSource_ID' and hasattr(self, '_sync_source_ids') and self._sync_source_ids:
-                # Use an existing SyncSource ID
-                row_data[column_name] = random.choice(self._sync_source_ids)
-                logging.info(f"Using existing SyncSource ID {row_data[column_name]} for SyncSource_LogAlert.SyncSource_ID")
-                continue
+            # Handle foreign keys for tables with circular dependencies
+            if hasattr(self, '_parent_table_ids'):
+                # Check if this column is a foreign key to a parent table in a circular dependency
+                for parent_table, parent_ids in self._parent_table_ids.items():
+                    # Check if this column references the parent table's ID
+                    if table in self.schema.foreign_keys:
+                        for fk in self.schema.foreign_keys[table]:
+                            if fk['column'] == column_name and fk['referenced_table'] == parent_table and fk['referenced_column'] == 'ID':
+                                # Use an existing parent table ID
+                                row_data[column_name] = random.choice(parent_ids)
+                                logging.info(f"Using existing {parent_table} ID {row_data[column_name]} for {table}.{column_name}")
+                                continue
 
             # Check if this is a foreign key
             is_foreign_key = False
@@ -367,25 +414,14 @@ class DatabasePopulator:
         columns = self.schema.table_columns[table]
         column_names = [col['column_name'] for col in columns]
 
-        # Special handling for SyncSource table which has a column named 'Lag' (MySQL reserved keyword)
-        if table == 'SyncSource':
-            logging.info("Special handling for SyncSource table with reserved keyword columns")
-            # Escape column names with backticks to handle reserved keywords
-            escaped_column_names = [f"`{col_name}`" for col_name in column_names]
+        # Always escape table and column names with backticks to handle reserved keywords
+        escaped_column_names = [f"`{col_name}`" for col_name in column_names]
 
-            # Prepare placeholders for SQL query
-            placeholders = ', '.join(['%s'] * len(column_names))
+        # Prepare placeholders for SQL query
+        placeholders = ', '.join(['%s'] * len(column_names))
 
-            # Build INSERT query with escaped column names
-            insert_query = f"INSERT INTO `{table}` ({', '.join(escaped_column_names)}) VALUES ({placeholders})"
-
-            logging.debug(f"Using escaped column names for SyncSource: {insert_query}")
-        else:
-            # Prepare placeholders for SQL query
-            placeholders = ', '.join(['%s'] * len(column_names))
-
-            # Build INSERT query
-            insert_query = f"INSERT INTO {table} ({', '.join(column_names)}) VALUES ({placeholders})"
+        # Build INSERT query with escaped table and column names
+        insert_query = f"INSERT INTO `{table}` ({', '.join(escaped_column_names)}) VALUES ({placeholders})"
 
         # Try multiple times with different random values
         for attempt in range(10):  # Try up to 10 times
