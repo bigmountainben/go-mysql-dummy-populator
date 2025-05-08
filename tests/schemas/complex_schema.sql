@@ -293,7 +293,7 @@ CREATE TABLE order_items (
     quantity INT NOT NULL CHECK (quantity > 0),
     unit_price DECIMAL(10, 2) NOT NULL CHECK (unit_price >= 0),
     discount_amount DECIMAL(10, 2) DEFAULT 0 CHECK (discount_amount >= 0),
-    total_price DECIMAL(10, 2) GENERATED ALWAYS AS ((quantity * unit_price) - discount_amount) STORED,
+    total_price DECIMAL(10, 2) AS ((quantity * unit_price) - discount_amount),
     FOREIGN KEY (order_id) REFERENCES orders(order_id) ON DELETE CASCADE,
     FOREIGN KEY (product_id) REFERENCES products(product_id)
 );
@@ -308,7 +308,7 @@ CREATE TABLE order_item_attributes (
 );
 
 -- Insert initial data
-INSERT INTO countries (country_name, country_code, continent) 
+INSERT INTO countries (country_name, country_code, continent)
 VALUES ('United States', 'US', 'North America');
 
 INSERT INTO users (username, email, password_hash, first_name, last_name, country_id, created_by)

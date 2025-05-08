@@ -112,7 +112,16 @@ class DatabasePopulator:
 
         # Get column information
         columns = self.schema.table_columns[table]
-        column_names = [col['column_name'] for col in columns]
+
+        # Filter out generated columns
+        non_generated_columns = []
+        for col in columns:
+            if 'generated' not in col.get('extra', '').lower():
+                non_generated_columns.append(col)
+            else:
+                logging.info(f"Skipping generated column {table}.{col['column_name']} in INSERT statement")
+
+        column_names = [col['column_name'] for col in non_generated_columns]
 
         # Always escape table and column names with backticks to handle reserved keywords
         escaped_column_names = [f"`{col_name}`" for col_name in column_names]
@@ -170,7 +179,7 @@ class DatabasePopulator:
         for i in range(self.num_records):
             try:
                 # Generate row data
-                row_data = self._generate_row_data(table, columns, handle_circular)
+                row_data = self._generate_row_data(table, non_generated_columns, handle_circular)
 
                 # Execute insert
                 if self.db.execute_query(insert_query, tuple(row_data.values()), commit=True):
@@ -345,8 +354,16 @@ class DatabasePopulator:
                     row_data[column_name] = placeholder
                     logging.info(f"Generated placeholder value {placeholder} for {table}.{column_name} -> {referenced_table}.{referenced_column}")
             else:
-                # Not a foreign key, generate a value based on column type
-                row_data[column_name] = self.data_gen.generate_value(col, table_name=table)
+                # Check if this is a generated column (GENERATED ALWAYS AS)
+                is_generated = 'generated' in col.get('extra', '').lower()
+
+                if is_generated:
+                    # Skip generating values for generated columns
+                    logging.info(f"Skipping generated column {table}.{column_name}")
+                    continue
+                else:
+                    # Not a foreign key or generated column, generate a value based on column type
+                    row_data[column_name] = self.data_gen.generate_value(col, table_name=table)
 
         return row_data
 
@@ -457,7 +474,16 @@ class DatabasePopulator:
 
         # Get column information
         columns = self.schema.table_columns[table]
-        column_names = [col['column_name'] for col in columns]
+
+        # Filter out generated columns
+        non_generated_columns = []
+        for col in columns:
+            if 'generated' not in col.get('extra', '').lower():
+                non_generated_columns.append(col)
+            else:
+                logging.info(f"Skipping generated column {table}.{col['column_name']} in partial population")
+
+        column_names = [col['column_name'] for col in non_generated_columns]
 
         # Always escape table and column names with backticks to handle reserved keywords
         escaped_column_names = [f"`{col_name}`" for col_name in column_names]
@@ -472,7 +498,7 @@ class DatabasePopulator:
         for attempt in range(10):  # Try up to 10 times
             try:
                 # Generate row data with special handling for circular dependencies
-                row_data = self._generate_row_data(table, columns, handle_circular=True)
+                row_data = self._generate_row_data(table, non_generated_columns, handle_circular=True)
 
                 # Execute insert
                 if self.db.execute_query(insert_query, tuple(row_data.values()), commit=True):
