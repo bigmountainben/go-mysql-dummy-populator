@@ -411,7 +411,8 @@ class DatabasePopulator:
                     continue
                 else:
                     # Not a foreign key or generated column, generate a value based on column type
-                    row_data[column_name] = self.data_gen.generate_value(col, table_name=table)
+                    # Pass the current row data to handle related fields
+                    row_data[column_name] = self.data_gen.generate_value(col, table_name=table, current_record=row_data)
 
         return row_data
 

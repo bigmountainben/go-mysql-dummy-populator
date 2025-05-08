@@ -19,6 +19,7 @@ class DataGenerator:
         """
         self.faker = Faker(locale)
         self.schema_analyzer = schema_analyzer
+        self._current_record = {}
         self.type_generators = {
             'varchar': self._generate_varchar,
             'char': self._generate_char,
@@ -81,13 +82,14 @@ class DataGenerator:
 
         return column_constraints
 
-    def generate_value(self, column_info, table_name=None):
+    def generate_value(self, column_info, table_name=None, current_record=None):
         """
         Generate a value for a column based on its type and constraints
 
         Args:
             column_info (dict): Column information from information_schema
             table_name (str, optional): Table name for check constraint lookup
+            current_record (dict, optional): Current record being generated, for related fields
 
         Returns:
             object: Generated value
@@ -98,9 +100,30 @@ class DataGenerator:
         column_comment = column_info['column_comment'] if column_info['column_comment'] else ''
         column_name = column_info['column_name']
 
-        # Check if NULL should be generated
-        if is_nullable and random.random() < 0.1:  # 10% chance of NULL for nullable columns
-            return None
+        # Store the current record for use by generators
+        if current_record is not None:
+            self._current_record = current_record
+
+        # Special handling for nullable fields that should be NULL in specific cases
+        if is_nullable:
+            # For events.recurrence_end_date, make it NULL if recurrence_pattern is NULL
+            if column_name == 'recurrence_end_date' and table_name == 'events':
+                if hasattr(self, '_current_record') and self._current_record.get('recurrence_pattern') is None:
+                    return None
+
+            # For schedule_exceptions.start_time and end_time, make them NULL if is_working is 0
+            if (column_name == 'start_time' or column_name == 'end_time') and table_name == 'schedule_exceptions':
+                if hasattr(self, '_current_record') and self._current_record.get('is_working') == 0:
+                    return None
+
+            # For events.start_time and end_time, make them NULL if is_all_day is 1
+            if (column_name == 'start_time' or column_name == 'end_time') and table_name == 'events':
+                if hasattr(self, '_current_record') and self._current_record.get('is_all_day') == 1:
+                    return None
+
+            # General case: 10% chance of NULL for nullable columns
+            if random.random() < 0.1:
+                return None
 
         # Get check constraints for this column if table_name is provided
         check_constraints = []
@@ -118,7 +141,13 @@ class DataGenerator:
 
         # Check for specific generators based on data type
         if data_type in self.type_generators:
-            return self.type_generators[data_type](column_info, column_type, column_comment)
+            value = self.type_generators[data_type](column_info, column_type, column_comment)
+
+            # Store the generated value in the current record for use by related fields
+            if hasattr(self, '_current_record'):
+                self._current_record[column_name] = value
+
+            return value
 
         # Default fallback
         logging.warning(f"No specific generator for type {data_type}, using default string")
@@ -691,6 +720,44 @@ class DataGenerator:
         start_date = datetime.now() - timedelta(days=3650)  # ~10 years ago
         end_date = datetime.now() + timedelta(days=365)     # 1 year in the future
 
+        # Check if this is a related date field (like end_date that should be after start_date)
+        column_name = column_info['column_name'].lower()
+        table_name = column_info.get('table_name', '').lower()
+
+        # Handle specific temporal relationships based on column and table names
+        if column_name == 'end_date' and table_name == 'events':
+            # For events.end_date, ensure it's >= events.start_date
+            # Try to find the start_date value in the same record
+            if hasattr(self, '_current_record') and self._current_record.get('start_date'):
+                start_date_val = self._current_record.get('start_date')
+                # Generate a date that's either the same or later than start_date
+                days_to_add = random.randint(0, 30)  # 0-30 days after start_date
+                return start_date_val + timedelta(days=days_to_add)
+
+        elif column_name == 'recurrence_end_date' and table_name == 'events':
+            # For events.recurrence_end_date, ensure it's >= events.end_date if not NULL
+            if hasattr(self, '_current_record') and self._current_record.get('end_date'):
+                end_date_val = self._current_record.get('end_date')
+                # Generate a date that's either the same or later than end_date
+                days_to_add = random.randint(0, 90)  # 0-90 days after end_date
+                return end_date_val + timedelta(days=days_to_add)
+
+        elif column_name == 'effective_to' and table_name == 'schedules':
+            # For schedules.effective_to, ensure it's > schedules.effective_from if not NULL
+            if hasattr(self, '_current_record') and self._current_record.get('effective_from'):
+                effective_from_val = self._current_record.get('effective_from')
+                # Generate a date that's later than effective_from
+                days_to_add = random.randint(1, 180)  # 1-180 days after effective_from
+                return effective_from_val + timedelta(days=days_to_add)
+
+        elif column_name == 'termination_date' and table_name == 'employees':
+            # For employees.termination_date, ensure it's >= employees.hire_date if not NULL
+            if hasattr(self, '_current_record') and self._current_record.get('hire_date'):
+                hire_date_val = self._current_record.get('hire_date')
+                # Generate a date that's either the same or later than hire_date
+                days_to_add = random.randint(0, 3650)  # 0-10 years after hire_date
+                return hire_date_val + timedelta(days=days_to_add)
+
         random_date = start_date + timedelta(
             days=random.randint(0, (end_date - start_date).days)
         )
@@ -701,6 +768,19 @@ class DataGenerator:
         # Generate a random datetime within the last 10 years
         start_date = datetime.now() - timedelta(days=3650)  # ~10 years ago
         end_date = datetime.now() + timedelta(days=365)     # 1 year in the future
+
+        # Check if this is a related datetime field
+        column_name = column_info['column_name'].lower()
+        table_name = column_info.get('table_name', '').lower()
+
+        # Handle specific temporal relationships based on column and table names
+        if column_name == 'end_datetime' and table_name == 'appointments':
+            # For appointments.end_datetime, ensure it's > appointments.start_datetime
+            if hasattr(self, '_current_record') and self._current_record.get('start_datetime'):
+                start_datetime_val = self._current_record.get('start_datetime')
+                # Generate a datetime that's later than start_datetime
+                minutes_to_add = random.randint(15, 180)  # 15 minutes to 3 hours after start_datetime
+                return start_datetime_val + timedelta(minutes=minutes_to_add)
 
         random_date = start_date + timedelta(
             days=random.randint(0, (end_date - start_date).days),
@@ -730,6 +810,31 @@ class DataGenerator:
         hours = random.randint(0, 23)
         minutes = random.randint(0, 59)
         seconds = random.randint(0, 59)
+
+        # Check if this is a related time field
+        column_name = column_info['column_name'].lower()
+        table_name = column_info.get('table_name', '').lower()
+
+        # Handle specific temporal relationships based on column and table names
+        if column_name == 'end_time' and (table_name == 'events' or table_name == 'schedules' or table_name == 'schedule_exceptions'):
+            # For end_time, ensure it's > start_time
+            if hasattr(self, '_current_record') and self._current_record.get('start_time'):
+                start_time_str = self._current_record.get('start_time')
+
+                # Parse the start_time string
+                if isinstance(start_time_str, str):
+                    start_hours, start_minutes, start_seconds = map(int, start_time_str.split(':'))
+
+                    # Ensure end_time is later than start_time
+                    # Add at least 15 minutes, up to 8 hours
+                    minutes_to_add = random.randint(15, 480)
+
+                    # Calculate new time
+                    total_minutes = start_hours * 60 + start_minutes + minutes_to_add
+                    end_hours = (total_minutes // 60) % 24
+                    end_minutes = total_minutes % 60
+
+                    return f"{end_hours:02d}:{end_minutes:02d}:{random.randint(0, 59):02d}"
 
         return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
 
