@@ -101,8 +101,7 @@ CREATE TABLE appointments (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (employee_id) REFERENCES employees(employee_id),
-    CHECK (end_datetime > start_datetime),
-    CHECK (start_datetime >= CURRENT_DATE())
+    CHECK (end_datetime > start_datetime)
 );
 
 -- Create appointment_history table

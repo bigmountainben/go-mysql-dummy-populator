@@ -31,7 +31,7 @@ CREATE TABLE cities (
     city_name VARCHAR(100) NOT NULL,
     region_id INT NOT NULL,
     location POINT NOT NULL COMMENT 'Point representing the city center',
-    boundary POLYGON COMMENT 'Polygon representing the city boundary',
+    boundary POLYGON NOT NULL COMMENT 'Polygon representing the city boundary',
     population INT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (region_id) REFERENCES regions(region_id),
@@ -95,11 +95,12 @@ CREATE TABLE customer_visits (
     customer_id INT NOT NULL,
     store_id INT NOT NULL,
     visit_time DATETIME NOT NULL,
-    entry_point POINT COMMENT 'Point representing where customer entered the store',
+    entry_point POINT NOT NULL COMMENT 'Point representing where customer entered the store',
     duration_minutes INT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (customer_id) REFERENCES customers(customer_id),
-    FOREIGN KEY (store_id) REFERENCES stores(store_id)
+    FOREIGN KEY (store_id) REFERENCES stores(store_id),
+    SPATIAL INDEX (entry_point)
 );
 
 -- Create delivery routes table with linestring paths

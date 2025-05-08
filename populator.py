@@ -126,11 +126,34 @@ class DatabasePopulator:
         # Always escape table and column names with backticks to handle reserved keywords
         escaped_column_names = [f"`{col_name}`" for col_name in column_names]
 
-        # Prepare placeholders for SQL query
-        placeholders = ', '.join(['%s'] * len(column_names))
+        # Check if any columns are spatial data types (POINT, POLYGON, LINESTRING)
+        spatial_columns = []
+        spatial_column_types = {}
+        for col in non_generated_columns:
+            data_type = col['data_type'].lower()
+            if data_type in ('point', 'polygon', 'linestring'):
+                spatial_columns.append(col['column_name'])
+                spatial_column_types[col['column_name']] = data_type
+                logging.info(f"Found spatial column {table}.{col['column_name']} of type {data_type}")
 
-        # Build INSERT query with escaped table and column names
-        insert_query = f"INSERT INTO `{table}` ({', '.join(escaped_column_names)}) VALUES ({placeholders})"
+        # For spatial data, we need to use a different approach
+        if spatial_columns:
+            # Build a custom INSERT query with the ST_GeomFromText function for spatial columns
+            value_parts = []
+            for col_name in column_names:
+                if col_name in spatial_columns:
+                    # For spatial columns, use the ST_GeomFromText function directly in the SQL
+                    value_parts.append(f"ST_GeomFromText(%s)")
+                else:
+                    # For non-spatial columns, use normal placeholders
+                    value_parts.append('%s')
+
+            # Build INSERT query with escaped table and column names
+            insert_query = f"INSERT INTO `{table}` ({', '.join(escaped_column_names)}) VALUES ({', '.join(value_parts)})"
+        else:
+            # Standard INSERT query for non-spatial data
+            placeholders = ', '.join(['%s'] * len(column_names))
+            insert_query = f"INSERT INTO `{table}` ({', '.join(escaped_column_names)}) VALUES ({placeholders})"
 
         # Log if the table has reserved keyword columns
         mysql_reserved_keywords = ['ADD', 'ALL', 'ALTER', 'ANALYZE', 'AND', 'AS', 'ASC', 'ASENSITIVE',
@@ -181,21 +204,46 @@ class DatabasePopulator:
                 # Generate row data
                 row_data = self._generate_row_data(table, non_generated_columns, handle_circular)
 
-                # Execute insert
-                if self.db.execute_query(insert_query, tuple(row_data.values()), commit=True):
-                    # Get the inserted ID if there's an auto-increment column
-                    last_id = None
-                    for col in columns:
-                        if col['extra'] == 'auto_increment':
-                            last_id_query = "SELECT LAST_INSERT_ID() as id"
-                            result = self.db.execute_query(last_id_query)
-                            if result and result[0]['id']:
-                                last_id = result[0]['id']
-                                row_data[col['column_name']] = last_id
+                # For spatial data, we need to modify the query to use the values directly
+                if spatial_columns:
+                    # Create a modified query with the spatial data values directly in the SQL
+                    modified_values = []
+                    for col_name in column_names:
+                        modified_values.append(row_data[col_name])
 
-                    # Store inserted data for foreign key references
-                    self.inserted_data[table].append(row_data)
-                    successful_inserts += 1
+                    # Execute the modified query
+                    if self.db.execute_query(insert_query, tuple(modified_values), commit=True):
+                        # Get the inserted ID if there's an auto-increment column
+                        last_id = None
+                        for col in columns:
+                            if col['extra'] == 'auto_increment':
+                                last_id_query = "SELECT LAST_INSERT_ID() as id"
+                                result = self.db.execute_query(last_id_query)
+                                if result and result[0]['id']:
+                                    last_id = result[0]['id']
+                                    row_data[col['column_name']] = last_id
+
+                        # Store inserted data for foreign key references
+                        self.inserted_data[table].append(row_data)
+                        successful_inserts += 1
+                    else:
+                        raise Error(f"Failed to insert data into {table}")
+                else:
+                    # Standard INSERT query for non-spatial data
+                    if self.db.execute_query(insert_query, tuple(row_data.values()), commit=True):
+                        # Get the inserted ID if there's an auto-increment column
+                        last_id = None
+                        for col in columns:
+                            if col['extra'] == 'auto_increment':
+                                last_id_query = "SELECT LAST_INSERT_ID() as id"
+                                result = self.db.execute_query(last_id_query)
+                                if result and result[0]['id']:
+                                    last_id = result[0]['id']
+                                    row_data[col['column_name']] = last_id
+
+                        # Store inserted data for foreign key references
+                        self.inserted_data[table].append(row_data)
+                        successful_inserts += 1
 
             except Error as e:
                 logging.error(f"Error inserting into {table}: {e}")
@@ -488,11 +536,34 @@ class DatabasePopulator:
         # Always escape table and column names with backticks to handle reserved keywords
         escaped_column_names = [f"`{col_name}`" for col_name in column_names]
 
-        # Prepare placeholders for SQL query
-        placeholders = ', '.join(['%s'] * len(column_names))
+        # Check if any columns are spatial data types (POINT, POLYGON, LINESTRING)
+        spatial_columns = []
+        spatial_column_types = {}
+        for col in non_generated_columns:
+            data_type = col['data_type'].lower()
+            if data_type in ('point', 'polygon', 'linestring'):
+                spatial_columns.append(col['column_name'])
+                spatial_column_types[col['column_name']] = data_type
+                logging.info(f"Found spatial column {table}.{col['column_name']} of type {data_type}")
 
-        # Build INSERT query with escaped table and column names
-        insert_query = f"INSERT INTO `{table}` ({', '.join(escaped_column_names)}) VALUES ({placeholders})"
+        # For spatial data, we need to use a different approach
+        if spatial_columns:
+            # Build a custom INSERT query with the ST_GeomFromText function for spatial columns
+            value_parts = []
+            for col_name in column_names:
+                if col_name in spatial_columns:
+                    # For spatial columns, use the ST_GeomFromText function directly in the SQL
+                    value_parts.append(f"ST_GeomFromText(%s)")
+                else:
+                    # For non-spatial columns, use normal placeholders
+                    value_parts.append('%s')
+
+            # Build INSERT query with escaped table and column names
+            insert_query = f"INSERT INTO `{table}` ({', '.join(escaped_column_names)}) VALUES ({', '.join(value_parts)})"
+        else:
+            # Standard INSERT query for non-spatial data
+            placeholders = ', '.join(['%s'] * len(column_names))
+            insert_query = f"INSERT INTO `{table}` ({', '.join(escaped_column_names)}) VALUES ({placeholders})"
 
         # Try multiple times with different random values
         for attempt in range(10):  # Try up to 10 times
@@ -500,20 +571,44 @@ class DatabasePopulator:
                 # Generate row data with special handling for circular dependencies
                 row_data = self._generate_row_data(table, non_generated_columns, handle_circular=True)
 
-                # Execute insert
-                if self.db.execute_query(insert_query, tuple(row_data.values()), commit=True):
-                    # Get the inserted ID if there's an auto-increment column
-                    for col in columns:
-                        if col['extra'] == 'auto_increment':
-                            last_id_query = "SELECT LAST_INSERT_ID() as id"
-                            result = self.db.execute_query(last_id_query)
-                            if result and result[0]['id']:
-                                row_data[col['column_name']] = result[0]['id']
+                # For spatial data, we need to modify the query to use the values directly
+                if spatial_columns:
+                    # Create a modified query with the spatial data values directly in the SQL
+                    modified_values = []
+                    for col_name in column_names:
+                        modified_values.append(row_data[col_name])
 
-                    # Store inserted data for foreign key references
-                    self.inserted_data[table].append(row_data)
-                    logging.info(f"Successfully inserted one record into {table}")
-                    return True
+                    # Execute the modified query
+                    if self.db.execute_query(insert_query, tuple(modified_values), commit=True):
+                        # Get the inserted ID if there's an auto-increment column
+                        for col in columns:
+                            if col['extra'] == 'auto_increment':
+                                last_id_query = "SELECT LAST_INSERT_ID() as id"
+                                result = self.db.execute_query(last_id_query)
+                                if result and result[0]['id']:
+                                    row_data[col['column_name']] = result[0]['id']
+
+                        # Store inserted data for foreign key references
+                        self.inserted_data[table].append(row_data)
+                        logging.info(f"Successfully inserted one record into {table}")
+                        return True
+                    else:
+                        raise Error(f"Failed to insert data into {table}")
+                else:
+                    # Standard INSERT query for non-spatial data
+                    if self.db.execute_query(insert_query, tuple(row_data.values()), commit=True):
+                        # Get the inserted ID if there's an auto-increment column
+                        for col in columns:
+                            if col['extra'] == 'auto_increment':
+                                last_id_query = "SELECT LAST_INSERT_ID() as id"
+                                result = self.db.execute_query(last_id_query)
+                                if result and result[0]['id']:
+                                    row_data[col['column_name']] = result[0]['id']
+
+                        # Store inserted data for foreign key references
+                        self.inserted_data[table].append(row_data)
+                        logging.info(f"Successfully inserted one record into {table}")
+                        return True
 
             except Error as e:
                 logging.debug(f"Attempt {attempt+1} failed for {table}: {e}")
