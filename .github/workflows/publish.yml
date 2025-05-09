@@ -9,23 +9,39 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
-    
+
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
         python-version: '3.x'
-    
+
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install build twine
         pip install -r requirements.txt
-    
+
+    - name: Extract version from GitHub release
+      id: get_version
+      run: |
+        # Extract version from GitHub ref (e.g., refs/tags/v1.2.3 -> 1.2.3)
+        VERSION=${GITHUB_REF#refs/tags/}
+        VERSION=${VERSION#v}
+        echo "VERSION=$VERSION" >> $GITHUB_ENV
+        echo "Extracted version: $VERSION"
+
+    - name: Update version in setup.py
+      run: |
+        # Replace the version in setup.py with the GitHub release version
+        sed -i "s/version = '[0-9]*\.[0-9]*\.[0-9]*'/version = '${{ env.VERSION }}'/g" setup.py
+        echo "Updated setup.py with version ${{ env.VERSION }}"
+        cat setup.py | grep "version ="
+
     - name: Build and check package
       run: |
         python -m build
         twine check dist/*
-    
+
     - name: Publish to PyPI
       uses: pypa/gh-action-pypi-publish@release/v1
       with:

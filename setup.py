@@ -6,7 +6,7 @@ Setup script for mysql-dummy-populator
 
 from setuptools import setup, find_packages
 
-# Define version directly
+# Define version directly (will be replaced by GitHub Actions with the release version)
 version = '0.0.1'
 
 # Read the long description from README.md
