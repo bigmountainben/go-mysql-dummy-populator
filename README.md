@@ -40,55 +40,36 @@ The badges at the top of this README provide at-a-glance information about the p
 
 ## Installation
 
+### Option 1: Install from PyPI (Recommended)
+
+You can install the package directly from PyPI:
+
+```bash
+pip install mysql-dummy-populator
+```
+
+### Option 2: Install from Source
+
+If you want to install from source:
+
 1. Clone this repository:
    ```bash
-   git clone https://github.com/yourusername/mysql-dummy-populator.git
+   git clone https://github.com/vitebski/mysql-dummy-populator.git
    cd mysql-dummy-populator
    ```
 
-2. Install virtualenv if you don't have it already:
+2. Install the package in development mode:
    ```bash
-   pip install virtualenv
+   pip install -e .
    ```
 
-3. Create and activate a virtual environment:
-
-   **For Unix/macOS:**
-   ```bash
-   # Create a virtual environment
-   virtualenv venv
-
-   # Activate the virtual environment
-   source venv/bin/activate
-   ```
-
-   **For Windows:**
-   ```bash
-   # Create a virtual environment
-   virtualenv venv
-
-   # Activate the virtual environment
-   venv\Scripts\activate
-   ```
-
-4. Install the required dependencies:
-   ```bash
-   # Make sure you're in the virtual environment (you should see (venv) in your terminal)
-   pip install -r requirements.txt
-   ```
-
-5. Create a `.env` file with your MySQL connection details:
+3. Create a `.env` file with your MySQL connection details:
    ```bash
    # Copy the sample file
    cp .env.sample .env
 
    # Edit the .env file with your database details
    nano .env  # or use your preferred editor
-   ```
-
-6. When you're done using the tool, you can deactivate the virtual environment:
-   ```bash
-   deactivate
    ```
 
 ## Configuration
@@ -136,34 +117,32 @@ export MYSQL_DATABASE=your_database
 
 ### Command Line
 
-Make sure your virtual environment is activated before running the tool:
+If you installed the package via pip, you can run the tool directly from the command line:
 
 ```bash
-# For Unix/macOS
-source venv/bin/activate
-
-# For Windows
-venv\Scripts\activate
-```
-
-You should see `(venv)` at the beginning of your command prompt when the virtual environment is active.
-
-Run the tool with default settings (using configuration from `.env` file or environment variables):
-
-```bash
-python main.py
+mysql-dummy-populator
 ```
 
 Or specify parameters directly:
 
 ```bash
-python main.py --host localhost --user root --password your_password --database your_database --records 20
+mysql-dummy-populator --host localhost --user root --password your_password --database your_database --records 20
 ```
 
 You can also specify a custom `.env` file:
 
 ```bash
-python main.py --env-file /path/to/custom/.env
+mysql-dummy-populator --env-file /path/to/custom/.env
+```
+
+If you installed from source, you can run the tool using:
+
+```bash
+# If installed in development mode
+mysql-dummy-populator
+
+# Or using the Python module directly
+python -m main
 ```
 
 ### Available Options
@@ -184,7 +163,7 @@ python main.py --env-file /path/to/custom/.env
 You can use the tool to analyze your database schema without actually populating any data:
 
 ```bash
-python main.py --analyze-only
+mysql-dummy-populator --analyze-only
 ```
 
 This will generate a detailed report about your database schema, including:
@@ -294,7 +273,7 @@ To run the E2E tests locally, you'll need a MySQL instance:
 mysql -h localhost -u your_user -p your_database < tests/schemas/demo_schema.sql
 
 # Run the populator
-python main.py --host localhost --user your_user --password your_password --database your_database --verify
+mysql-dummy-populator --host localhost --user your_user --password your_password --database your_database --verify
 ```
 
 The demo schema includes:
