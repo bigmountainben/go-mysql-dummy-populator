@@ -3,11 +3,11 @@
 Setup script for mysql-dummy-populator
 """
 
-import os
+
 from setuptools import setup, find_packages
 
 # Define version directly
-version = '0.1.0'
+version = '0.0.1'
 
 # Read the long description from README.md
 with open('README.md', 'r') as f:
@@ -45,7 +45,7 @@ setup(
     classifiers=[
         'Development Status :: 4 - Beta',
         'Intended Audience :: Developers',
-        'Intended Audience :: Database Administrators',
+        'Intended Audience :: Information Technology',
         'License :: OSI Approved :: MIT License',
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.8',
