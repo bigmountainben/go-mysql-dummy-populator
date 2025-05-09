@@ -121,6 +121,13 @@ class DataGenerator:
                 if hasattr(self, '_current_record') and self._current_record.get('is_all_day') == 1:
                     return None
 
+            # Special case for product_inventory.reorder_threshold
+            # This column has a CHECK constraint that requires it to be > 0 when not NULL
+            # We'll make it NULL 20% of the time to ensure we get enough valid records
+            if column_name == 'reorder_threshold' and table_name == 'product_inventory':
+                if random.random() < 0.2:
+                    return None
+
             # General case: 10% chance of NULL for nullable columns
             if random.random() < 0.1:
                 return None
@@ -255,6 +262,12 @@ class DataGenerator:
                 max_val = min(max_val, 100000)
             else:
                 max_val = min(max_val, 10000)
+
+        # Special case for product_inventory.reorder_threshold
+        # This column has a CHECK constraint that requires it to be > 0
+        if column_name_lower == 'reorder_threshold' and column_info.get('table_name') == 'product_inventory':
+            min_val = 1  # Ensure it's greater than 0 to satisfy the CHECK constraint
+            max_val = min(max_val, 100)  # Keep it reasonable
 
         # Check for check constraints
         check_constraints = column_info.get('check_constraints', [])
