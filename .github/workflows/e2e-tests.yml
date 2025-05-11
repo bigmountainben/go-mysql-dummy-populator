@@ -50,6 +50,7 @@ jobs:
         python -m virtualenv venv
         source venv/bin/activate
         pip install -r requirements.txt
+        pip install -r requirements-dev.txt
 
     - name: Create schema - ${{ matrix.schema }}
       run: |

@@ -37,6 +37,7 @@ The badges at the top of this README provide at-a-glance information about the p
 - Python 3.6+
 - MySQL 8.0+
 - Required Python packages (see `requirements.txt`)
+- For development and testing, additional packages are required (see `requirements-dev.txt`)
 
 ## Installation
 
@@ -253,8 +254,10 @@ source venv/bin/activate
 # Run all unit tests
 python -m unittest discover -s tests -p "test_*.py"
 
+# Install development dependencies
+pip install -r requirements-dev.txt
+
 # Run tests with coverage report
-pip install coverage
 coverage run -m unittest discover -s tests -p "test_*.py"
 coverage report
 
@@ -275,8 +278,8 @@ To generate a coverage report locally:
 # Activate your virtual environment
 source venv/bin/activate
 
-# Install coverage
-pip install coverage
+# Install development dependencies
+pip install -r requirements-dev.txt
 
 # Run tests with coverage
 coverage run -m unittest discover -s tests -p "test_*.py"
