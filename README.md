@@ -15,7 +15,7 @@ The badges at the top of this README provide at-a-glance information about the p
 
 - **Unit Tests**: Status of the automated unit tests
 - **E2E Tests**: Status of the end-to-end tests with a real MySQL database
-- **Code Coverage**: Percentage of code covered by tests
+- **Code Coverage**: Percentage of code covered by tests (tracked by Codecov)
 - **Python 3.8+**: Indicates Python version compatibility
 - **MySQL 8.0+**: Indicates MySQL version compatibility
 - **License: MIT**: Shows the project's license
@@ -53,17 +53,20 @@ pip install mysql-dummy-populator
 If you want to install from source:
 
 1. Clone this repository:
+
    ```bash
    git clone https://github.com/vitebski/mysql-dummy-populator.git
    cd mysql-dummy-populator
    ```
 
 2. Install the package in development mode:
+
    ```bash
    pip install -e .
    ```
 
 3. Create a `.env` file with your MySQL connection details:
+
    ```bash
    # Copy the sample file
    cp .env.sample .env
@@ -84,7 +87,7 @@ The tool can be configured in three ways, with the following priority order (hig
 
 The tool automatically looks for a `.env` file in the current directory. You can use the provided `.env.sample` as a template:
 
-```
+```env
 # MySQL Database Connection
 MYSQL_HOST=localhost
 MYSQL_USER=root
@@ -248,12 +251,42 @@ To run the unit tests locally:
 source venv/bin/activate
 
 # Run all unit tests
-python -m unittest discover -p "test_*.py"
+python -m unittest discover -s tests -p "test_*.py"
 
 # Run tests with coverage report
 pip install coverage
-coverage run -m unittest discover -p "test_*.py"
+coverage run -m unittest discover -s tests -p "test_*.py"
 coverage report
+
+# Note: When running tests, you may see warning and error messages like
+# "Verification failed: 1 tables have no records". These are expected and
+# are part of testing error handling scenarios, not actual test failures.
+```
+
+### Code Coverage
+
+The project uses [Codecov](https://codecov.io) to track code coverage metrics. Coverage reports are automatically generated during the CI process and uploaded to Codecov.
+
+You can view the latest coverage report on the [Codecov dashboard](https://codecov.io/gh/vitebski/mysql-dumy-populator).
+
+To generate a coverage report locally:
+
+```bash
+# Activate your virtual environment
+source venv/bin/activate
+
+# Install coverage
+pip install coverage
+
+# Run tests with coverage
+coverage run -m unittest discover -s tests -p "test_*.py"
+
+# View coverage report in terminal
+coverage report
+
+# Generate HTML report
+coverage html
+# Then open htmlcov/index.html in your browser
 ```
 
 ### End-to-End Tests
@@ -277,6 +310,7 @@ mysql-dummy-populator --host localhost --user your_user --password your_password
 ```
 
 The demo schema includes:
+
 - Tables with primary keys
 - Tables with foreign keys
 - Tables with circular dependencies

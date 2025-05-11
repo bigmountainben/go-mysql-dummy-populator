@@ -1,9 +1,9 @@
 [run]
 source = .
-omit = 
+omit =
     venv/*
     */tests/*
-    */test_*.py
+    tests/*
     setup.py
 
 [report]

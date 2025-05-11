@@ -7,6 +7,11 @@ import unittest
 import logging
 import os
 import re
+import sys
+
+# Add the parent directory to the path so we can import the modules
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from db_connector import DatabaseConnector
 from schema_analyzer import SchemaAnalyzer
 from data_generator import DataGenerator

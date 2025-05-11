@@ -4,7 +4,13 @@ Test script for the verification functionality
 """
 
 import unittest
+import sys
+import os
 from unittest.mock import MagicMock, patch
+
+# Add the parent directory to the path so we can import the modules
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from utils import verify_table_population
 
 class TestVerification(unittest.TestCase):
