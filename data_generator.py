@@ -304,6 +304,36 @@ class DataGenerator:
                     max_val = min(max_val, float(between_match.group(2)))
                     logging.debug(f"Applied BETWEEN constraint from raw clause to {column_info['column_name']}: {min_val} to {max_val}")
 
+                # Try to extract >= pattern
+                min_match = re.search(r'>=\s*(-?\d+\.?\d*)', raw_clause, re.IGNORECASE)
+                if min_match:
+                    constraint_min = float(min_match.group(1))
+                    min_val = max(min_val, constraint_min)
+                    logging.debug(f"Applied >= constraint from raw clause to {column_info['column_name']}: min = {min_val}")
+
+                # Try to extract <= pattern
+                max_match = re.search(r'<=\s*(-?\d+\.?\d*)', raw_clause, re.IGNORECASE)
+                if max_match:
+                    constraint_max = float(max_match.group(1))
+                    max_val = min(max_val, constraint_max)
+                    logging.debug(f"Applied <= constraint from raw clause to {column_info['column_name']}: max = {max_val}")
+
+                # Try to extract > pattern
+                min_match = re.search(r'>\s*(-?\d+\.?\d*)', raw_clause, re.IGNORECASE)
+                if min_match:
+                    constraint_min = float(min_match.group(1))
+                    # Add 1 to ensure it's strictly greater than
+                    min_val = max(min_val, constraint_min + 1)
+                    logging.debug(f"Applied > constraint from raw clause to {column_info['column_name']}: min = {min_val}")
+
+                # Try to extract < pattern
+                max_match = re.search(r'<\s*(-?\d+\.?\d*)', raw_clause, re.IGNORECASE)
+                if max_match:
+                    constraint_max = float(max_match.group(1))
+                    # Subtract 1 to ensure it's strictly less than
+                    max_val = min(max_val, constraint_max - 1)
+                    logging.debug(f"Applied < constraint from raw clause to {column_info['column_name']}: max = {max_val}")
+
         return random.randint(min_val, max_val)
 
     def _generate_tinyint(self, column_info, column_type, column_comment):
@@ -591,6 +621,36 @@ class DataGenerator:
                     max_val = min(max_val, constraint_max)
                     logging.debug(f"Applied BETWEEN constraint from raw clause to {column_info['column_name']}: {min_val} to {max_val}")
 
+                # Try to extract >= pattern
+                min_match = re.search(r'>=\s*(-?\d+\.?\d*)', raw_clause, re.IGNORECASE)
+                if min_match:
+                    constraint_min = float(min_match.group(1))
+                    min_val = max(min_val, constraint_min)
+                    logging.debug(f"Applied >= constraint from raw clause to {column_info['column_name']}: min = {min_val}")
+
+                # Try to extract <= pattern
+                max_match = re.search(r'<=\s*(-?\d+\.?\d*)', raw_clause, re.IGNORECASE)
+                if max_match:
+                    constraint_max = float(max_match.group(1))
+                    max_val = min(max_val, constraint_max)
+                    logging.debug(f"Applied <= constraint from raw clause to {column_info['column_name']}: max = {max_val}")
+
+                # Try to extract > pattern
+                min_match = re.search(r'>\s*(-?\d+\.?\d*)', raw_clause, re.IGNORECASE)
+                if min_match:
+                    constraint_min = float(min_match.group(1))
+                    # Add a small epsilon to ensure it's strictly greater than
+                    min_val = max(min_val, constraint_min + 0.000001)
+                    logging.debug(f"Applied > constraint from raw clause to {column_info['column_name']}: min = {min_val}")
+
+                # Try to extract < pattern
+                max_match = re.search(r'<\s*(-?\d+\.?\d*)', raw_clause, re.IGNORECASE)
+                if max_match:
+                    constraint_max = float(max_match.group(1))
+                    # Subtract a small epsilon to ensure it's strictly less than
+                    max_val = min(max_val, constraint_max - 0.000001)
+                    logging.debug(f"Applied < constraint from raw clause to {column_info['column_name']}: max = {max_val}")
+
         return round(random.uniform(min_val, max_val), 6)
 
     def _generate_double(self, column_info, column_type, column_comment):
@@ -718,6 +778,22 @@ class DataGenerator:
                         constraint_max = float(max_match.group(1))
                         max_val = min(max_val, constraint_max)
                         logging.debug(f"Applied <= constraint from raw clause to {column_info['column_name']}: max = {max_val}")
+
+                    # Try to extract > pattern
+                    min_match = re.search(r'>\s*(-?\d+\.?\d*)', raw_clause, re.IGNORECASE)
+                    if min_match:
+                        constraint_min = float(min_match.group(1))
+                        # Add a small epsilon to ensure it's strictly greater than
+                        min_val = max(min_val, constraint_min + Decimal('0.000001'))
+                        logging.debug(f"Applied > constraint from raw clause to {column_info['column_name']}: min = {min_val}")
+
+                    # Try to extract < pattern
+                    max_match = re.search(r'<\s*(-?\d+\.?\d*)', raw_clause, re.IGNORECASE)
+                    if max_match:
+                        constraint_max = float(max_match.group(1))
+                        # Subtract a small epsilon to ensure it's strictly less than
+                        max_val = min(max_val, constraint_max - Decimal('0.000001'))
+                        logging.debug(f"Applied < constraint from raw clause to {column_info['column_name']}: max = {max_val}")
 
             # Generate a random decimal value within the safe range
             value = random.uniform(min_val, max_val)

@@ -431,6 +431,49 @@ class SchemaAnalyzer:
                 logging.debug(f"Parsed range constraint (generic format): {result['column']} between {result['min_value']} and {result['max_value']}")
                 return result
 
+            # Handle single-sided constraints like (column >= min) or (column <= max)
+            # First check for >= constraints
+            min_match = re.search(r'\(([a-zA-Z0-9_]+)\s*>=\s*(-?\d+\.?\d*)\)', clean_clause, re.IGNORECASE)
+            if min_match:
+                result['type'] = 'range'
+                result['column'] = min_match.group(1)
+                result['min_value'] = float(min_match.group(2))
+                # No max value specified, so leave it as None
+                logging.debug(f"Parsed single-sided range constraint: {result['column']} >= {result['min_value']}")
+                return result
+
+            # Then check for <= constraints
+            max_match = re.search(r'\(([a-zA-Z0-9_]+)\s*<=\s*(-?\d+\.?\d*)\)', clean_clause, re.IGNORECASE)
+            if max_match:
+                result['type'] = 'range'
+                result['column'] = max_match.group(1)
+                # No min value specified, so leave it as None
+                result['max_value'] = float(max_match.group(2))
+                logging.debug(f"Parsed single-sided range constraint: {result['column']} <= {result['max_value']}")
+                return result
+
+            # Check for > constraints
+            min_match = re.search(r'\(([a-zA-Z0-9_]+)\s*>\s*(-?\d+\.?\d*)\)', clean_clause, re.IGNORECASE)
+            if min_match:
+                result['type'] = 'range'
+                result['column'] = min_match.group(1)
+                result['min_value'] = float(min_match.group(2))
+                # Add a small epsilon to the min value since it's strictly greater than
+                result['min_value'] += 0.000001 if '.' in min_match.group(2) else 1
+                logging.debug(f"Parsed single-sided range constraint: {result['column']} > {min_match.group(2)}, adjusted to >= {result['min_value']}")
+                return result
+
+            # Check for < constraints
+            max_match = re.search(r'\(([a-zA-Z0-9_]+)\s*<\s*(-?\d+\.?\d*)\)', clean_clause, re.IGNORECASE)
+            if max_match:
+                result['type'] = 'range'
+                result['column'] = max_match.group(1)
+                result['max_value'] = float(max_match.group(2))
+                # Subtract a small epsilon from the max value since it's strictly less than
+                result['max_value'] -= 0.000001 if '.' in max_match.group(2) else 1
+                logging.debug(f"Parsed single-sided range constraint: {result['column']} < {max_match.group(2)}, adjusted to <= {result['max_value']}")
+                return result
+
         # If we couldn't parse it, return the raw clause for manual handling
         logging.debug(f"Could not parse constraint into a specific type: {check_clause}")
         return result
