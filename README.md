@@ -227,15 +227,6 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 This project uses GitHub Actions for automated testing to ensure code quality and functionality.
 
-### Unit Tests
-
-The unit tests workflow runs all the unit tests in the project across multiple Python versions:
-
-- Python 3.8
-- Python 3.9
-- Python 3.10
-- Python 3.11
-
 To run the unit tests locally:
 
 ```bash

@@ -3,6 +3,9 @@ package connector
 import (
 	"os"
 	"testing"
+
+	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/sirupsen/logrus"
 )
 
 func TestNewDatabaseConnector(t *testing.T) {
@@ -14,7 +17,8 @@ func TestNewDatabaseConnector(t *testing.T) {
 	os.Setenv("MYSQL_PORT", "3307")
 
 	// Create a new logger for testing
-	logger := createTestLogger()
+	logger := logrus.New()
+	logger.SetLevel(logrus.FatalLevel) // Suppress log output during tests
 
 	// Create a new database connector
 	db := NewDatabaseConnector("", "", "", "", "", logger)
@@ -57,19 +61,173 @@ func TestNewDatabaseConnector(t *testing.T) {
 	}
 }
 
-// Helper function to create a test logger
-func createTestLogger() *MockLogger {
-	return &MockLogger{}
+func TestExecuteQuery(t *testing.T) {
+	// Create a mock database
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("Error creating mock database: %v", err)
+	}
+	defer db.Close()
+
+	// Create a logger
+	logger := logrus.New()
+	logger.SetLevel(logrus.FatalLevel) // Suppress log output during tests
+
+	// Create a database connector with the mock database
+	connector := &DatabaseConnector{
+		Host:     "localhost",
+		User:     "user",
+		Password: "password",
+		Database: "database",
+		Port:     "3306",
+		DB:       db,
+		Logger:   logger,
+	}
+
+	// Set up expected query and result
+	rows := sqlmock.NewRows([]string{"id", "name"}).AddRow(1, "test")
+	mock.ExpectQuery("SELECT \\* FROM test").WillReturnRows(rows)
+
+	// Execute the query
+	result, err := connector.ExecuteQuery("SELECT * FROM test")
+	if err != nil {
+		t.Errorf("Error executing query: %v", err)
+	}
+
+	// Check the result
+	if len(result) != 1 {
+		t.Errorf("Expected 1 row, got %d", len(result))
+	}
+	if result[0]["id"] != int64(1) {
+		t.Errorf("Expected id to be 1, got %v", result[0]["id"])
+	}
+	if result[0]["name"] != "test" {
+		t.Errorf("Expected name to be 'test', got %v", result[0]["name"])
+	}
+
+	// Verify that all expectations were met
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("Unfulfilled expectations: %v", err)
+	}
 }
 
-// MockLogger is a mock implementation of the logrus.Logger
-type MockLogger struct{}
+func TestExecuteStatement(t *testing.T) {
+	// Create a mock database
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("Error creating mock database: %v", err)
+	}
+	defer db.Close()
 
-func (l *MockLogger) Debugf(format string, args ...interface{})   {}
-func (l *MockLogger) Infof(format string, args ...interface{})    {}
-func (l *MockLogger) Warningf(format string, args ...interface{}) {}
-func (l *MockLogger) Errorf(format string, args ...interface{})   {}
-func (l *MockLogger) Debug(args ...interface{})                   {}
-func (l *MockLogger) Info(args ...interface{})                    {}
-func (l *MockLogger) Warning(args ...interface{})                 {}
-func (l *MockLogger) Error(args ...interface{})                   {}
+	// Create a logger
+	logger := logrus.New()
+	logger.SetLevel(logrus.FatalLevel) // Suppress log output during tests
+
+	// Create a database connector with the mock database
+	connector := &DatabaseConnector{
+		Host:     "localhost",
+		User:     "user",
+		Password: "password",
+		Database: "database",
+		Port:     "3306",
+		DB:       db,
+		Logger:   logger,
+	}
+
+	// Set up expected statement and result
+	mock.ExpectExec("INSERT INTO test").WithArgs(1, "test").WillReturnResult(sqlmock.NewResult(1, 1))
+
+	// Execute the statement
+	affected, err := connector.ExecuteStatement("INSERT INTO test", 1, "test")
+	if err != nil {
+		t.Errorf("Error executing statement: %v", err)
+	}
+
+	// Check the result
+	if affected != 1 {
+		t.Errorf("Expected 1 affected row, got %d", affected)
+	}
+
+	// Verify that all expectations were met
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("Unfulfilled expectations: %v", err)
+	}
+}
+
+func TestExecuteMany(t *testing.T) {
+	// Create a mock database
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("Error creating mock database: %v", err)
+	}
+	defer db.Close()
+
+	// Create a logger
+	logger := logrus.New()
+	logger.SetLevel(logrus.FatalLevel) // Suppress log output during tests
+
+	// Create a database connector with the mock database
+	connector := &DatabaseConnector{
+		Host:     "localhost",
+		User:     "user",
+		Password: "password",
+		Database: "database",
+		Port:     "3306",
+		DB:       db,
+		Logger:   logger,
+	}
+
+	// Set up expected transaction and statements
+	mock.ExpectBegin()
+	stmt := mock.ExpectPrepare("INSERT INTO test")
+	stmt.ExpectExec().WithArgs(1, "test1").WillReturnResult(sqlmock.NewResult(1, 1))
+	stmt.ExpectExec().WithArgs(2, "test2").WillReturnResult(sqlmock.NewResult(2, 1))
+	mock.ExpectCommit()
+
+	// Execute the batch statement
+	paramsList := [][]interface{}{
+		{1, "test1"},
+		{2, "test2"},
+	}
+	affected, err := connector.ExecuteMany("INSERT INTO test", paramsList)
+	if err != nil {
+		t.Errorf("Error executing batch statement: %v", err)
+	}
+
+	// Check the result
+	if affected != 2 {
+		t.Errorf("Expected 2 affected rows, got %d", affected)
+	}
+
+	// Verify that all expectations were met
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("Unfulfilled expectations: %v", err)
+	}
+}
+
+func TestConnect(t *testing.T) {
+	// Create a logger
+	logger := logrus.New()
+	logger.SetLevel(logrus.FatalLevel) // Suppress log output during tests
+
+	// Create a database connector
+	connector := NewDatabaseConnector("localhost", "user", "password", "", "3306", logger)
+
+	// Test missing database name
+	err := connector.Connect()
+	if err == nil {
+		t.Error("Expected error for missing database name, got nil")
+	}
+
+	// Restore database name
+	connector.Database = "database"
+
+	// We can't fully test the Connect method without a real database,
+	// but we can at least verify it doesn't panic
+	// Note: This will fail because we can't mock sql.Open easily
+	// This is just to demonstrate the approach
+	// err = connector.Connect()
+	// if err == nil {
+	// 	t.Error("Expected error for connection failure, got nil")
+	// }
+}
