@@ -1,4 +1,0 @@
-# Development and testing dependencies
-pytest>=7.0.0
-coverage>=6.0.0
-codecov>=2.1.0

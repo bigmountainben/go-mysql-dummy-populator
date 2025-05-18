@@ -1,23 +1,18 @@
 # MySQL Dummy Data Populator
 
-[![Unit Tests](https://github.com/vitebski/mysql-dummy-populator/actions/workflows/unit-tests.yml/badge.svg?branch=main)](https://github.com/vitebski/mysql-dummy-populator/actions/workflows/unit-tests.yml)
-[![E2E Tests](https://github.com/vitebski/mysql-dummy-populator/actions/workflows/e2e-tests.yml/badge.svg?branch=main)](https://github.com/vitebski/mysql-dummy-populator/actions/workflows/e2e-tests.yml)
-[![codecov](https://codecov.io/gh/vitebski/mysql-dummy-populator/branch/main/graph/badge.svg)](https://codecov.io/gh/vitebski/mysql-dummy-populator)
-[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![MySQL 8.0+](https://img.shields.io/badge/mysql-8.0+-orange.svg)](https://dev.mysql.com/downloads/)
+[![Go 1.16+](https://img.shields.io/badge/go-1.16+-blue.svg)](https://golang.org/dl/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A Python tool that populates MySQL databases with realistic dummy data, handling foreign keys, circular dependencies, and many-to-many relationships.
+A Go tool that populates MySQL databases with realistic dummy data, handling foreign keys, circular dependencies, and many-to-many relationships.
 
 ## Project Status
 
 The badges at the top of this README provide at-a-glance information about the project:
 
-- **Unit Tests**: Status of the automated unit tests
-- **E2E Tests**: Status of the end-to-end tests with a real MySQL database
-- **Code Coverage**: Percentage of code covered by tests (tracked by Codecov)
-- **Python 3.8+**: Indicates Python version compatibility
+- **Go 1.16+**: Indicates Go version compatibility
 - **MySQL 8.0+**: Indicates MySQL version compatibility
+- **License: MIT**: Shows the project's license
 - **License: MIT**: Shows the project's license
 
 ## Features
@@ -34,19 +29,17 @@ The badges at the top of this README provide at-a-glance information about the p
 
 ## Requirements
 
-- Python 3.6+
+- Go 1.16+
 - MySQL 8.0+
-- Required Python packages (see `requirements.txt`)
-- For development and testing, additional packages are required (see `requirements-dev.txt`)
 
 ## Installation
 
-### Option 1: Install from PyPI (Recommended)
+### Option 1: Install using Go
 
-You can install the package directly from PyPI:
+You can install the package directly using Go:
 
 ```bash
-pip install mysql-dummy-populator
+go install github.com/vitebski/mysql-dummy-populator/cmd/mysql-dummy-populator@latest
 ```
 
 ### Option 2: Install from Source
@@ -60,10 +53,10 @@ If you want to install from source:
    cd mysql-dummy-populator
    ```
 
-2. Install the package in development mode:
+2. Build the application:
 
    ```bash
-   pip install -e .
+   go build -o mysql-dummy-populator ./cmd/mysql-dummy-populator
    ```
 
 3. Create a `.env` file with your MySQL connection details:
@@ -89,19 +82,18 @@ The tool can be configured in three ways, with the following priority order (hig
 The tool automatically looks for a `.env` file in the current directory. You can use the provided `.env.sample` as a template:
 
 ```env
-# MySQL Database Connection
+# MySQL connection parameters
 MYSQL_HOST=localhost
 MYSQL_USER=root
 MYSQL_PASSWORD=your_password
 MYSQL_DATABASE=your_database
 MYSQL_PORT=3306
 
-# Data Generation Settings
-MYSQL_RECORDS=10
-MYSQL_LOCALE=en_US
-
-# Application Settings
-MYSQL_LOG_LEVEL=INFO
+# Application settings
+MYSQL_LOG_LEVEL=info  # debug, info, warn, error
+MYSQL_RECORDS=10      # Number of records to generate per table
+MYSQL_MAX_RETRIES=5   # Maximum number of retries for handling circular dependencies
+MYSQL_MIN_RECORDS=1   # Minimum number of records each table should have for verification
 ```
 
 You can also specify a different `.env` file location using the `--env-file` parameter.
@@ -121,7 +113,7 @@ export MYSQL_DATABASE=your_database
 
 ### Command Line
 
-If you installed the package via pip, you can run the tool directly from the command line:
+If you installed the package via Go, you can run the tool directly from the command line:
 
 ```bash
 mysql-dummy-populator
@@ -142,25 +134,24 @@ mysql-dummy-populator --env-file /path/to/custom/.env
 If you installed from source, you can run the tool using:
 
 ```bash
-# If installed in development mode
-mysql-dummy-populator
-
-# Or using the Python module directly
-python -m main
+# From the project directory
+./mysql-dummy-populator
 ```
 
 ### Available Options
 
-- `--host`: MySQL host (default: from MYSQL_HOST env var or .env file)
-- `--user`: MySQL user (default: from MYSQL_USER env var or .env file)
-- `--password`: MySQL password (default: from MYSQL_PASSWORD env var or .env file)
-- `--database`: MySQL database name (default: from MYSQL_DATABASE env var or .env file)
-- `--port`: MySQL port (default: from MYSQL_PORT env var or .env file, or 3306)
-- `--records`: Number of records per table (default: from MYSQL_RECORDS env var or .env file, or 10)
-- `--locale`: Locale for fake data generation (default: from MYSQL_LOCALE env var or .env file, or en_US)
-- `--log-level`: Log level (default: from MYSQL_LOG_LEVEL env var or .env file, or INFO)
-- `--env-file`: Path to .env file (default: .env)
-- `--analyze-only`: Only analyze the database schema without populating data
+- `--host`, `-H`: MySQL host (default: from MYSQL_HOST env var or .env file)
+- `--user`, `-u`: MySQL user (default: from MYSQL_USER env var or .env file)
+- `--password`, `-p`: MySQL password (default: from MYSQL_PASSWORD env var or .env file)
+- `--database`, `-d`: MySQL database name (default: from MYSQL_DATABASE env var or .env file)
+- `--port`, `-P`: MySQL port (default: from MYSQL_PORT env var or .env file, or 3306)
+- `--records`, `-r`: Number of records per table (default: from MYSQL_RECORDS env var or .env file, or 10)
+- `--max-retries`, `-m`: Maximum number of retries for handling circular dependencies (default: 5)
+- `--min-records`, `-n`: Minimum number of records each table should have for verification (default: 1)
+- `--log-level`, `-l`: Log level (debug, info, warn, error) (default: from MYSQL_LOG_LEVEL env var or .env file, or info)
+- `--env-file`, `-e`: Path to .env file (default: .env)
+- `--analyze-only`, `-a`: Only analyze the database schema without populating data
+- `--verify`, `-v`: Verify that all tables have been populated with the expected number of records
 
 ### Analyze-Only Mode
 
@@ -248,18 +239,11 @@ The unit tests workflow runs all the unit tests in the project across multiple P
 To run the unit tests locally:
 
 ```bash
-# Activate your virtual environment
-source venv/bin/activate
-
 # Run all unit tests
-python -m unittest discover -s tests -p "test_*.py"
-
-# Install development dependencies
-pip install -r requirements-dev.txt
+go test ./...
 
 # Run tests with coverage report
-coverage run -m unittest discover -s tests -p "test_*.py"
-coverage report
+go test -cover ./...
 
 # Note: When running tests, you may see warning and error messages like
 # "Verification failed: 1 tables have no records". These are expected and
@@ -268,28 +252,17 @@ coverage report
 
 ### Code Coverage
 
-The project uses [Codecov](https://codecov.io) to track code coverage metrics. Coverage reports are automatically generated during the CI process and uploaded to Codecov.
-
-You can view the latest coverage report on the [Codecov dashboard](https://codecov.io/gh/vitebski/mysql-dummy-populator).
-
-To generate a coverage report locally:
+To generate a detailed coverage report locally:
 
 ```bash
-# Activate your virtual environment
-source venv/bin/activate
+# Generate coverage profile
+go test -coverprofile=coverage.out ./...
 
-# Install development dependencies
-pip install -r requirements-dev.txt
+# View coverage in browser
+go tool cover -html=coverage.out
 
-# Run tests with coverage
-coverage run -m unittest discover -s tests -p "test_*.py"
-
-# View coverage report in terminal
-coverage report
-
-# Generate HTML report
-coverage html
-# Then open htmlcov/index.html in your browser
+# View coverage in terminal
+go tool cover -func=coverage.out
 ```
 
 ### End-to-End Tests
